@@ -1,0 +1,224 @@
+/* GENERAL STYLING */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    margin: 0;
+    width: 750px;
+    height: 550px;
+    background-color: #f7f9fc;
+}
+
+.container {
+    display: flex;
+    height: 100%;
+    width: 100%;
+}
+
+/* SIDEBAR & NOTE LIST */
+.sidebar {
+    width: 220px;
+    border-right: 1px solid #dee2e6;
+    display: flex;
+    flex-direction: column;
+    background-color: #fff;
+}
+
+.search-container {
+    padding: 10px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+#searchInput {
+    width: 95%;
+    padding: 8px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.notes-list {
+    flex-grow: 1;
+    overflow-y: auto;
+}
+
+.note-item {
+    padding: 12px 15px;
+    cursor: pointer;
+    border-bottom: 1px solid #f1f3f5;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #495057;
+}
+
+.note-item.active {
+    background-color: #e9ecef;
+    font-weight: 500;
+}
+
+.note-item:hover:not(.active) {
+    background-color: #f8f9fa;
+}
+
+.sidebar-footer {
+    padding: 10px 15px;
+    border-top: 1px solid #dee2e6;
+    font-size: 14px;
+}
+
+#recycleBinLink {
+    text-decoration: none;
+    color: #007bff;
+    cursor: pointer;
+}
+
+#recycleBinLink:hover {
+    text-decoration: underline;
+}
+
+/* MAIN CONTENT & EDITOR */
+.main-content {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.top-controls {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    padding: 10px 15px;
+    border-bottom: 1px solid #dee2e6;
+    background-color: #fff;
+}
+
+#newNoteBtn {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+#deleteNoteBtn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.3em;
+    color: #dc3545;
+    margin-right: 15px;
+    padding: 0;
+}
+#deleteNoteBtn:hover {
+    color: #c82333;
+}
+
+.editor-toolbar {
+    padding: 5px;
+    border-bottom: 1px solid #dee2e6;
+    background-color: #f8f9fa;
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.toolbar-btn {
+    border: 1px solid transparent;
+    background-color: transparent;
+    font-size: 16px;
+    cursor: pointer;
+    margin: 2px;
+    padding: 5px 8px;
+    width: 32px;
+    height: 32px;
+    color: #495057;
+}
+.toolbar-btn:hover {
+    background-color: #e9ecef;
+    border-radius: 3px;
+}
+
+.editor {
+    flex-grow: 1;
+    padding: 15px;
+    overflow-y: auto;
+    outline: none;
+    font-size: 16px;
+    line-height: 1.6;
+    background-color: #fff;
+}
+
+/* RECYCLE BIN VIEW */
+.recycle-bin-view {
+    padding: 15px;
+    background-color: #fff;
+    flex-grow: 1;
+    overflow-y: auto;
+}
+
+.recycle-bin-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 10px;
+}
+
+.recycle-bin-header h3 {
+    margin: 0;
+    color: #343a40;
+}
+
+.back-to-notes-btn {
+    padding: 5px 12px;
+    cursor: pointer;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    background-color: #f8f9fa;
+    font-size: 14px;
+}
+.back-to-notes-btn:hover {
+    background-color: #e9ecef;
+}
+
+.deleted-note-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 10px;
+    border-bottom: 1px solid #f1f3f5;
+}
+
+.deleted-note-title {
+    flex-grow: 1;
+    color: #495057;
+}
+
+.restore-btn, .perm-delete-btn {
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 6px 12px;
+    border-radius: 4px;
+    margin-left: 10px;
+    color: white;
+}
+
+.restore-btn {
+    background-color: #28a745; /* Green */
+}
+.restore-btn:hover {
+    background-color: #218838;
+}
+
+.perm-delete-btn {
+    background-color: #dc3545; /* Red */
+}
+.perm-delete-btn:hover {
+    background-color: #c82333;
+}
