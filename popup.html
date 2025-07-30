@@ -4,21 +4,33 @@
     <meta charset="UTF-8">
     <title>My Notepad</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Using Font Awesome for the pin icon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
 </head>
 <body>
     <div class="container">
+        <!-- SIDEBAR -->
         <div class="sidebar">
-            <div class="search-container">
-                <input type="text" id="searchInput" placeholder="Search Notes..">
+            <div class="sidebar-header">
+                <input type="text" id="searchInput" placeholder="Search Notes...">
+                <select id="sortOrderSelect">
+                    <option value="date-desc">Sort: Newest First</option>
+                    <option value="date-asc">Sort: Oldest First</option>
+                    <option value="title-az">Sort: Title (A-Z)</option>
+                </select>
             </div>
             <div id="notesList" class="notes-list"></div>
             <div class="sidebar-footer">
                 <a href="#" id="recycleBinLink">Recycle Bin (<span id="deletedCount">0</span>)</a>
             </div>
         </div>
+        <!-- MAIN CONTENT -->
         <div class="main-content">
-            <div class="editor-toolbar">
+            <div class="top-controls">
+                <button id="deleteNoteBtn" title="Delete Note"><i class="fas fa-trash"></i></button>
+                <button id="newNoteBtn">New Note</button>
+            </div>
+            <div id="editorToolbar" class="editor-toolbar">
                 <button id="boldBtn" class="toolbar-btn"><i class="fas fa-bold"></i></button>
                 <button id="italicBtn" class="toolbar-btn"><i class="fas fa-italic"></i></button>
                 <button id="underlineBtn" class="toolbar-btn"><i class="fas fa-underline"></i></button>
@@ -31,9 +43,8 @@
                 <button id="olBtn" class="toolbar-btn"><i class="fas fa-list-ol"></i></button>
             </div>
             <div id="editor" class="editor" contenteditable="true"></div>
-            <div class="top-controls">
-                <button id="deleteNoteBtn"><i class="fas fa-trash"></i></button>
-                <button id="newNoteBtn">New Note</button>
+            <div class="editor-footer">
+                <span id="wordCount">Words: 0</span> | <span id="charCount">Characters: 0</span>
             </div>
         </div>
     </div>
