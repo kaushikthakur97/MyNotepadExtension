@@ -3,7 +3,7 @@
 **My Tabbed Notepad** is a lightweight, feature-rich, and effective notepad that runs directly in your browser. Designed for quick access and efficient note-taking, it offers a clean user interface with powerful features like a rich-text editor, note pinning, a recycle bin, and theme customization. All your notes are saved securely in your browser's local storage.
 
 <img width="450" height="350" alt="image" src="https://github.com/user-attachments/assets/34abb7b5-9804-47ad-adf9-bcd1e148f7bf" />
-<img width="450" height="350" alt="image" src="https://github.com/user-attachments/assets/388447eb-7919-4f3a-bb51-bda0779d3da7" />
+<img width="450" height="350" alt="image" src="https://github.com/user-attachments/assets/68d148c4-c5bf-46ad-aefd-9159b98a1063" />
 
 
 ## ✨ Key Features
