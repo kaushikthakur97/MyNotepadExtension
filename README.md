@@ -5,8 +5,9 @@
 _**Screenshots**_
 <br>
 <br>
-<img width="450" height="350" alt="image" src="https://github.com/user-attachments/assets/34abb7b5-9804-47ad-adf9-bcd1e148f7bf" />
-<img width="450" height="350" alt="image" src="https://github.com/user-attachments/assets/68d148c4-c5bf-46ad-aefd-9159b98a1063" />
+<img width="450" height="350" alt="image" src="https://github.com/user-attachments/assets/a57bce5d-1d7f-40db-b97f-8c1b437e859f" />
+<img width="450" height="350" alt="image" src="https://github.com/user-attachments/assets/5658c632-39be-4433-bcaa-d56d0bfc53ba" />
+
 
 
 ## ✨ Key Features
