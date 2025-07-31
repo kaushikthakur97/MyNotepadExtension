@@ -17,6 +17,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const editorFooter = document.querySelector('.editor-footer');
     const themeToggleBtn = document.getElementById('themeToggleBtn');
     const lastSavedSpan = document.getElementById('lastSaved');
+    // New Elements
+    const exportNoteBtn = document.getElementById('exportNoteBtn');
+    const toastContainer = document.getElementById('toastContainer');
 
     // --- State Variables ---
     let notes = [];
@@ -24,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentNoteId = null;
     let isRecycleBinViewActive = false;
     let currentSortOrder = 'date-desc';
+    const themes = ['light', 'dark', 'slate', 'glassmorphism'];
     let currentTheme = 'light';
     let debounceTimer;
 
@@ -37,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
             notes = result.notes || [];
             deletedNotes = result.deletedNotes || [];
             currentSortOrder = result.sortOrder || 'date-desc';
-            currentTheme = result.theme || 'light';
+            currentTheme = result.theme && themes.includes(result.theme) ? result.theme : 'light';
             
             applyTheme();
             sortOrderSelect.value = currentSortOrder;
@@ -50,7 +54,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     currentNoteId = notes.length > 0 ? notes[0].id : null;
                 }
             }
-
             renderNotesList();
             updateDeletedCount();
             loadNoteContent();
@@ -59,15 +62,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- THEME MANAGEMENT ---
     const applyTheme = () => {
-        body.classList.toggle('dark-mode', currentTheme === 'dark');
-        const icon = themeToggleBtn.querySelector('i');
-        icon.className = currentTheme === 'dark' ? 'fas fa-sun' : 'fas fa-palette';
+        themes.forEach(theme => body.classList.remove(theme + '-mode'));
+        document.documentElement.classList.remove('has-glass-backdrop');
+
+        body.classList.add(currentTheme + '-mode');
+        
+        if (currentTheme === 'glassmorphism') {
+            document.documentElement.classList.add('has-glass-backdrop');
+        }
+
+        const capitalizedTheme = currentTheme.charAt(0).toUpperCase() + currentTheme.slice(1);
+        themeToggleBtn.title = `Current Theme: ${capitalizedTheme} (Click to Cycle)`;
     };
 
     const handleThemeToggle = () => {
-        currentTheme = (currentTheme === 'light') ? 'dark' : 'light';
+        const currentIndex = themes.indexOf(currentTheme);
+        currentTheme = themes[(currentIndex + 1) % themes.length];
         applyTheme();
         saveData();
+        showToast(`Theme changed to ${currentTheme}`, 'info');
     };
 
     // --- UI VIEW TOGGLING ---
@@ -130,12 +143,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             saveData();
             updateDeletedCount();
-            
-            // *** THE FIX ***
-            // First, re-render the hidden sidebar list with the newly restored note.
             renderNotesList();
-            // Then, re-render the recycle bin view, which is what the user sees.
             showRecycleBinView();
+            showToast('Note restored successfully.', 'success');
         }
     };
 
@@ -146,13 +156,13 @@ document.addEventListener('DOMContentLoaded', () => {
             saveData();
             updateDeletedCount();
             showRecycleBinView();
+            showToast('Note permanently deleted.', 'error');
         }
     };
 
     const createNewNote = (shouldSave = true) => {
-        if (isRecycleBinViewActive) {
-            showEditorView();
-        }
+        if (isRecycleBinViewActive) showEditorView();
+        
         const newNote = { id: Date.now(), title: '', content: '', isPinned: false, lastModified: Date.now() };
         notes.unshift(newNote);
         currentNoteId = newNote.id;
@@ -205,6 +215,34 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const exportCurrentNote = () => {
+        if (!currentNoteId) {
+            showToast('Select a note to export.', 'error');
+            return;
+        }
+        const note = notes.find(n => n.id === currentNoteId);
+        if (!note) return;
+
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = note.content;
+        const textContent = tempDiv.textContent || tempDiv.innerText || "";
+        const blobContent = `# ${note.title}\n\n${textContent}`;
+        const blob = new Blob([blobContent], { type: 'text/plain;charset=utf-8' });
+
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        const fileName = (note.title.trim() || 'untitled_note').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        
+        link.setAttribute('href', url);
+        link.setAttribute('download', `${fileName}.txt`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        showToast('Note exported as .txt', 'success');
+    };
+
     const sortNotes = () => {
         notes.sort((a, b) => {
             if (a.isPinned && !b.isPinned) return -1;
@@ -249,11 +287,11 @@ document.addEventListener('DOMContentLoaded', () => {
             
             item.addEventListener('click', (e) => {
                 if (e.target.classList.contains('pin-icon')) return;
-                if(isRecycleBinViewActive) showEditorView();
+                if (isRecycleBinViewActive) showEditorView();
                 
                 if (currentNoteId !== note.id){
                     currentNoteId = note.id;
-                    renderNotesList(); // Only re-render the list for selection change
+                    renderNotesList();
                     loadNoteContent();
                 }
             });
@@ -269,7 +307,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const loadNoteContent = () => {
         if(isRecycleBinViewActive) return;
-
         const note = notes.find(n => n.id === currentNoteId);
         if (note) {
             noteTitleInput.value = note.title;
@@ -278,13 +315,15 @@ document.addEventListener('DOMContentLoaded', () => {
             noteTitleInput.disabled = false;
             editorContainer.setAttribute('contenteditable', 'true');
             deleteNoteBtn.disabled = false;
+            exportNoteBtn.disabled = false;
         } else {
             noteTitleInput.value = 'Select a Note';
-            editorContainer.innerHTML = '<div class="empty-state">Select a note from the left, or create a new one!</div>';
+            editorContainer.innerHTML = '<div class="empty-state">Select a note or create a new one!</div>';
             updateLastSavedDisplay(null);
             noteTitleInput.disabled = true;
             editorContainer.setAttribute('contenteditable', 'false');
             deleteNoteBtn.disabled = true;
+            exportNoteBtn.disabled = true;
         }
         updateWordCount();
     };
@@ -305,7 +344,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 note.content = editorContainer.innerHTML;
                 note.lastModified = Date.now();
                 saveData();
-                renderNotesList();
+                renderNotesList(); // Re-render list in case title changed
                 updateLastSavedDisplay(note.lastModified);
             }
         }, 500);
@@ -323,8 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const diffMinutes = Math.round(diffSeconds / 60);
             if (diffMinutes < 60) lastSavedSpan.textContent = `Saved ${diffMinutes}m ago`;
             else {
-                const options = { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true };
-                lastSavedSpan.textContent = `Saved: ${savedDate.toLocaleDateString(undefined, options)}`;
+                lastSavedSpan.textContent = `Saved: ${savedDate.toLocaleTimeString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
             }
         }
     };
@@ -337,16 +375,31 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const updateDeletedCount = () => { deletedCountSpan.textContent = deletedNotes.length; };
+    
+    const showToast = (message, type = 'info') => {
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+
+        toastContainer.appendChild(toast);
+        
+        setTimeout(() => toast.classList.add('show'), 10);
+        setTimeout(() => {
+            toast.classList.remove('show');
+            toast.addEventListener('transitionend', () => toast.remove());
+        }, 3000);
+    };
 
     const setupToolbar = () => {
         const exec = (cmd, val = null) => { document.execCommand(cmd, false, val); editorContainer.focus(); handleNoteUpdate(); };
+
+        // --- Existing Buttons ---
         document.getElementById('boldBtn').addEventListener('click', () => exec('bold'));
         document.getElementById('italicBtn').addEventListener('click', () => exec('italic'));
         document.getElementById('underlineBtn').addEventListener('click', () => exec('underline'));
         document.getElementById('strikeBtn').addEventListener('click', () => exec('strikethrough'));
         document.getElementById('linkBtn').addEventListener('click', () => {
-            const currentSelection = window.getSelection().toString();
-            const url = prompt('Enter a URL:', currentSelection.startsWith('http') ? currentSelection : 'https://');
+            const url = prompt('Enter a URL:', 'https://');
             if(url) exec('createLink', url);
         });
         document.getElementById('alignLeftBtn').addEventListener('click', () => exec('justifyLeft'));
@@ -354,6 +407,17 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('alignRightBtn').addEventListener('click', () => exec('justifyRight'));
         document.getElementById('ulBtn').addEventListener('click', () => exec('insertUnorderedList'));
         document.getElementById('olBtn').addEventListener('click', () => exec('insertOrderedList'));
+
+        // --- New Buttons ---
+        const foreColorPicker = document.getElementById('foreColorPicker');
+        document.getElementById('foreColorBtn').addEventListener('click', () => foreColorPicker.click());
+        foreColorPicker.addEventListener('input', (e) => exec('foreColor', e.target.value));
+
+        const backColorPicker = document.getElementById('backColorPicker');
+        document.getElementById('backColorBtn').addEventListener('click', () => backColorPicker.click());
+        backColorPicker.addEventListener('input', (e) => exec('hiliteColor', e.target.value));
+        
+        document.getElementById('clearFormatBtn').addEventListener('click', () => exec('removeFormat'));
     };
     
     const setupEventListeners = () => {
@@ -373,6 +437,7 @@ document.addEventListener('DOMContentLoaded', () => {
         noteTitleInput.addEventListener('input', handleNoteUpdate);
         editorContainer.addEventListener('input', handleNoteUpdate);
         editorContainer.addEventListener('paste', handlePaste);
+        exportNoteBtn.addEventListener('click', exportCurrentNote);
     }
 
     // --- INITIALIZATION ---
