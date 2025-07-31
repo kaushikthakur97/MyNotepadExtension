@@ -1,6 +1,6 @@
 # My Tabbed Notepad - Chrome Extension
 
-**My Tabbed Notepad** is a lightweight, feature-rich, and effective notepad that runs directly in your browser. Designed for quick access and efficient note-taking, it offers a clean UI with powerful features like an advanced rich-text editor, note pinning, a recycle bin, and extensive theme customization. All your notes are saved securely in your browser's local storage.
+**My Tabbed Notepad** is a lightweight, feature-rich, and effective notepad that runs directly in your browser. Designed for quick access and efficient note-taking, it offers a clean UI with powerful features like a one-click screenshot capture, an advanced rich-text editor, note pinning, a recycle bin, and extensive theme customization. All your notes are saved securely and instantly in your browser's local storage.
 
 _**Screenshots**_
 <br>
@@ -8,23 +8,22 @@ _**Screenshots**_
 <img width="450" height="350" alt="image" src="https://github.com/user-attachments/assets/a57bce5d-1d7f-40db-b97f-8c1b437e859f" />
 <img width="450" height="350" alt="image" src="https://github.com/user-attachments/assets/5658c632-39be-4433-bcaa-d56d0bfc53ba" />
 
-
-
 ## ✨ Key Features
 
-*   **Advanced Rich Text Editor**: Format your notes with a full-featured toolbar including **Bold**, *Italic*, <u>Underline</u>, ~~Strikethrough~~, lists, and text alignment. Now also with <font color="#f56565">Text Color</font>, <mark>Highlighting</mark>, and a button to **Clear All Formatting**.
-*   **Persistent Storage**: All notes are automatically saved to `chrome.storage.local`, ensuring your data is safe and persists between browser sessions.
-*   **Note Organization**:
-    *   **Search**: Instantly find notes by searching through titles and content.
-    *   **Sorting**: Arrange your notes by Newest First, Oldest First, or alphabetically by Title.
+*   **One-Click Screenshot Capture**: Instantly capture the visible area of your current tab. The screenshot is automatically saved into a new note and copied to your clipboard for easy pasting elsewhere.
+*   **Advanced Rich Text Editor**: Format your notes with a full-featured toolbar including **Bold**, *Italic*, <u>Underline</u>, ~~Strikethrough~~, hyperlinks, lists, and text alignment. Also includes <font color="#f56565">Text Color</font>, <mark>Highlighting</mark>, and a button to **Clear All Formatting**.
+*   **Persistent & Secure Storage**: All notes are automatically saved to `chrome.storage.local`, ensuring your data is safe on your machine and persists between browser sessions.
+*   **Powerful Note Organization**:
+    *   **Search**: Instantly find notes by searching through both titles and content.
+    *   **Sorting**: Arrange your notes by Newest First, Oldest First, or alphabetically by Title (A-Z).
     *   **Pinning**: Keep important notes at the top of your list for easy access.
-*   **Recycle Bin**: Deleted notes aren't gone forever. They are moved to a recycle bin where you can either restore them or delete them permanently.
-*   **Multiple Themes**: Personalize your experience by cycling through four stunning themes: **Light**, **Dark**, a modern **Slate**, and a beautiful **Glassmorphism** effect. Your choice is saved automatically.
-*   **Efficient Workflow**:
-    *   **Auto-Save**: Notes are saved automatically with a smart debounce mechanism to prevent excessive saving while you're typing.
-    *   **Export & Feedback**: Easily export any note as a `.txt` file and get helpful "toast" notifications for key actions like saving or restoring notes.
-    *   **Status Indicators**: See when your note was last saved, and keep track of word and character counts in real-time.
-*   **Modern UI**: A clean, two-column layout that makes managing and editing notes intuitive and straightforward.
+*   **Safe Deletion with Recycle Bin**: Deleted notes are moved to a recycle bin where you can either restore them with a single click or delete them permanently.
+*   **Four Stunning Themes**: Personalize your experience by cycling through four distinct themes: **Light**, **Dark**, a modern **Slate**, and a beautiful **Glassmorphism** effect. Your preference is saved automatically.
+*   **Efficient & Modern Workflow**:
+    *   **Auto-Save**: Notes are saved automatically with a smart debounce mechanism to prevent excessive saving while you type.
+    *   **Helpful Feedback**: Get "toast" notifications for key actions like saving, restoring, or exporting notes.
+    *   **Status Indicators**: See when your note was last saved (e.g., "Saved just now") and keep track of word and character counts in real-time.
+    *   **Export**: Easily export any note as a `.txt` file.
 
 ## 📂 File Structure
 
@@ -44,10 +43,11 @@ The project is organized into the following files:
 ## 🛠️ Technical Deep Dive
 
 *   **State Management**: The application state (including all notes, deleted notes, sort order, and selected theme) is managed in JavaScript variables within the `DOMContentLoaded` event listener.
-*   **Data Persistence**: `chrome.storage.local.set()` is used to save the state, and `chrome.storage.local.get()` retrieves it when the extension is opened.
-*   **Theming with CSS Variables**: The extension leverages CSS custom properties (variables) for all its themes. JavaScript cycles through a list of theme names, applying a corresponding class (e.g., `dark-mode`, `slate-mode`, `glassmorphism-mode`) to the `<body>` element. This makes adding or modifying themes clean and scalable.
-*   **Rich Text Editing**: The editor leverages the native `contentEditable` attribute on a `<div>`, and formatting is applied using the `document.execCommand()` API for both standard styles and new features like text/highlight coloring.
-*   **Debounced Saving**: To optimize performance, user input triggers a `setTimeout` function. This `debounce` mechanism ensures that the `saveData()` function is only called after the user has paused typing for 500ms.
+*   **Data Persistence**: `chrome.storage.local.set()` is used to save the state, and `chrome.storage.local.get()` retrieves it when the extension is opened, ensuring a seamless user experience.
+*   **Theming with CSS Variables**: The extension leverages CSS custom properties for its themes. JavaScript cycles through theme names, applying a corresponding class (e.g., `dark-mode`, `glassmorphism-mode`) to the `<body>`. The Glassmorphism theme utilizes the `backdrop-filter` property for a modern blur effect.
+*   **Rich Text Editing**: The editor is built on a `contentEditable` `<div>`, with formatting applied via the `document.execCommand()` API for robust, native browser support.
+*   **Screenshot & Clipboard API**: The capture feature uses `chrome.tabs.captureVisibleTab` to generate a PNG data URL. This image is then written to the user's clipboard using the modern `navigator.clipboard.write()` API with a `ClipboardItem`.
+*   **Debounced Saving**: To optimize performance, user input on the title or editor triggers a `setTimeout` function. This `debounce` mechanism ensures that the `saveData()` function is only called 500ms after the user has paused typing.
 *   **Note Export**: The export feature converts a note's HTML content into plain text, creates a `Blob` (a file-like object), and then generates a temporary `<a>` link to trigger a user download of the `.txt` file.
 
 ## 🚀 How to Install and Run for Development

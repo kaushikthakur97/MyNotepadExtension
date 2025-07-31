@@ -1,10 +1,12 @@
 {
   "manifest_version": 3,
   "name": "My Tabbed Notepad",
-  "version": "1.2.0",
-  "description": "A lightweight and efficient notepad with tabs for seamless note-taking.",
+  "version": "1.3.0",
+  "description": "A lightweight and efficient notepad with tabs, now with screenshot capture.",
   "permissions": [
-    "storage"
+    "storage",
+    "activeTab",
+    "scripting"
   ],
   "action": {
     "default_popup": "popup.html",
