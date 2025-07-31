@@ -46,7 +46,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 createNewNote(false);
             } else {
                 sortNotes();
-                currentNoteId = notes.length > 0 ? notes[0].id : null;
+                if (!notes.find(n => n.id === currentNoteId)) {
+                    currentNoteId = notes.length > 0 ? notes[0].id : null;
+                }
             }
 
             renderNotesList();
@@ -74,11 +76,13 @@ document.addEventListener('DOMContentLoaded', () => {
         editorWrapper.style.display = 'flex';
         editorFooter.style.display = 'flex';
         mainContent.querySelector('.recycle-bin-view')?.remove();
+        renderNotesList();
         loadNoteContent();
     };
 
     const showRecycleBinView = () => {
         isRecycleBinViewActive = true;
+        currentNoteId = null; 
         editorWrapper.style.display = 'none';
         editorFooter.style.display = 'none';
         mainContent.querySelector('.recycle-bin-view')?.remove();
@@ -93,15 +97,16 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>`;
 
         if (deletedNotes.length === 0) {
-            html += '<p>The Recycle Bin is empty.</p>';
+            html += '<div class="empty-state">The Recycle Bin is empty.</div>';
         } else {
+            deletedNotes.sort((a, b) => b.lastModified - a.lastModified);
             deletedNotes.forEach(note => {
                 html += `
                     <div class="deleted-note-item" data-id="${note.id}">
                         <span class="deleted-note-title">${note.title || 'Untitled Note'}</span>
-                        <div>
-                            <button class="restore-btn">Restore</button>
-                            <button class="perm-delete-btn">Delete Permanently</button>
+                        <div class="deleted-note-actions">
+                            <button class="restore-btn" title="Restore Note"><i class="fas fa-undo"></i></button>
+                            <button class="perm-delete-btn" title="Delete Permanently"><i class="fas fa-trash-alt"></i></button>
                         </div>
                     </div>`;
             });
@@ -120,29 +125,34 @@ document.addEventListener('DOMContentLoaded', () => {
         const noteIndex = deletedNotes.findIndex(n => n.id === noteId);
         if (noteIndex > -1) {
             const [restoredNote] = deletedNotes.splice(noteIndex, 1);
+            restoredNote.lastModified = Date.now();
             notes.unshift(restoredNote);
+
             saveData();
             updateDeletedCount();
+            
+            // *** THE FIX ***
+            // First, re-render the hidden sidebar list with the newly restored note.
             renderNotesList();
+            // Then, re-render the recycle bin view, which is what the user sees.
             showRecycleBinView();
         }
     };
 
     const handleDeletePermanently = (e) => {
         const noteId = Number(e.target.closest('.deleted-note-item').dataset.id);
-        if (confirm("Are you sure you want to permanently delete this note? This cannot be undone.")) {
-            const noteIndex = deletedNotes.findIndex(n => n.id === noteId);
-            if (noteIndex > -1) {
-                deletedNotes.splice(noteIndex, 1);
-                saveData();
-                updateDeletedCount();
-                showRecycleBinView();
-            }
+        if (confirm("Are you sure you want to permanently delete this note? This action cannot be undone.")) {
+            deletedNotes = deletedNotes.filter(n => n.id !== noteId);
+            saveData();
+            updateDeletedCount();
+            showRecycleBinView();
         }
     };
 
     const createNewNote = (shouldSave = true) => {
-        if (isRecycleBinViewActive) showEditorView();
+        if (isRecycleBinViewActive) {
+            showEditorView();
+        }
         const newNote = { id: Date.now(), title: '', content: '', isPinned: false, lastModified: Date.now() };
         notes.unshift(newNote);
         currentNoteId = newNote.id;
@@ -155,23 +165,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const deleteCurrentNote = () => {
         if (!currentNoteId) return;
-        if (notes.length <= 1) {
-            alert("Cannot delete the last remaining note.");
-            return;
-        }
         const noteIndex = notes.findIndex(n => n.id === currentNoteId);
+
         if (noteIndex > -1) {
+            if (notes.length === 1) { 
+                const note = notes[0];
+                note.title = ""; note.content = ""; note.isPinned = false; note.lastModified = Date.now();
+                saveData();
+                renderNotesList();
+                loadNoteContent();
+                return;
+            }
+
             const [deletedNote] = notes.splice(noteIndex, 1);
+            deletedNote.lastModified = Date.now(); 
             deletedNotes.unshift(deletedNote);
-            const newActiveNoteIndex = Math.max(0, noteIndex - 1);
-            currentNoteId = notes.length > 0 ? notes[newActiveNoteIndex].id : null;
+            currentNoteId = notes.length > 0 ? notes[Math.max(0, noteIndex - 1)].id : null;
+            
             saveData();
-            renderNotesList();
             updateDeletedCount();
+            renderNotesList();
             loadNoteContent();
         }
     };
-
+    
     const handlePaste = (e) => {
         e.preventDefault();
         const text = (e.clipboardData || window.clipboardData).getData('text/plain');
@@ -182,6 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const note = notes.find(n => n.id === noteId);
         if (note) {
             note.isPinned = !note.isPinned;
+            note.lastModified = Date.now();
             saveData();
             renderNotesList();
         }
@@ -195,10 +213,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 case 'title-az':
                     return a.title.localeCompare(b.title);
                 case 'date-asc':
-                    return a.id - b.id;
+                    return a.lastModified - b.lastModified;
                 case 'date-desc':
                 default:
-                    return b.id - a.id;
+                    return b.lastModified - a.lastModified;
             }
         });
     };
@@ -208,27 +226,36 @@ document.addEventListener('DOMContentLoaded', () => {
         sortNotes();
         const lastScrollTop = notesListContainer.scrollTop;
         notesListContainer.innerHTML = '';
-        const searchQuery = searchInput.value.toLowerCase();
-        const notesToRender = notes.filter(n => n.title.toLowerCase().includes(searchQuery) || n.content.toLowerCase().includes(searchQuery));
+        const searchQuery = searchInput.value.toLowerCase().trim();
+        const filteredNotes = notes.filter(n => n.title.toLowerCase().includes(searchQuery) || n.content.toLowerCase().includes(searchQuery));
 
-        notesToRender.forEach(note => {
+        if (notes.length > 0 && filteredNotes.length === 0 && searchQuery) {
+            notesListContainer.innerHTML = `<div class="empty-state">No matches found.</div>`;
+            return;
+        }
+
+        if (notes.length === 0){
+             if (currentNoteId) loadNoteContent();
+             return;
+        }
+
+        filteredNotes.forEach(note => {
             const item = document.createElement('div');
-            item.className = 'note-item';
+            item.className = `note-item ${note.isPinned ? 'pinned' : ''} ${note.id === currentNoteId && !isRecycleBinViewActive ? 'active' : ''}`;
             item.dataset.id = note.id;
-            if (note.isPinned) item.classList.add('pinned');
-            if (note.id === currentNoteId) item.classList.add('active');
-            let displayTitle = note.title.trim() || note.content.trim().split('\n')[0] || 'Untitled Note';
+            const displayTitle = note.title.trim() || note.content.replace(/<[^>]*>/g, '').trim().split('\n')[0] || 'Untitled Note';
 
-            item.innerHTML = `
-                <i class="fa-solid fa-thumbtack pin-icon" title="Pin Note"></i>
-                <span class="note-title">${displayTitle}</span>`;
+            item.innerHTML = `<i class="fa-solid fa-thumbtack pin-icon" title="${note.isPinned ? 'Unpin Note' : 'Pin Note'}"></i><span class="note-title">${displayTitle}</span>`;
             
             item.addEventListener('click', (e) => {
                 if (e.target.classList.contains('pin-icon')) return;
-                if (isRecycleBinViewActive) showEditorView();
-                currentNoteId = note.id;
-                renderNotesList();
-                loadNoteContent();
+                if(isRecycleBinViewActive) showEditorView();
+                
+                if (currentNoteId !== note.id){
+                    currentNoteId = note.id;
+                    renderNotesList(); // Only re-render the list for selection change
+                    loadNoteContent();
+                }
             });
 
             item.querySelector('.pin-icon').addEventListener('click', (e) => {
@@ -241,21 +268,31 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const loadNoteContent = () => {
+        if(isRecycleBinViewActive) return;
+
         const note = notes.find(n => n.id === currentNoteId);
         if (note) {
             noteTitleInput.value = note.title;
             editorContainer.innerHTML = note.content;
             updateLastSavedDisplay(note.lastModified);
+            noteTitleInput.disabled = false;
+            editorContainer.setAttribute('contenteditable', 'true');
+            deleteNoteBtn.disabled = false;
         } else {
-            noteTitleInput.value = '';
-            editorContainer.innerHTML = '';
+            noteTitleInput.value = 'Select a Note';
+            editorContainer.innerHTML = '<div class="empty-state">Select a note from the left, or create a new one!</div>';
             updateLastSavedDisplay(null);
+            noteTitleInput.disabled = true;
+            editorContainer.setAttribute('contenteditable', 'false');
+            deleteNoteBtn.disabled = true;
         }
         updateWordCount();
     };
 
     const handleNoteUpdate = () => {
         if (!currentNoteId || isRecycleBinViewActive) return;
+        
+        updateWordCount(); 
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
             const note = notes.find(n => n.id === currentNoteId);
@@ -272,29 +309,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateLastSavedDisplay(note.lastModified);
             }
         }, 500);
-        updateWordCount();
     };
     
     const updateLastSavedDisplay = (timestamp) => {
-        if (!timestamp) {
-            lastSavedSpan.textContent = '';
-            return;
-        }
+        if (!timestamp) { lastSavedSpan.textContent = ''; return; }
         const now = new Date();
         const savedDate = new Date(timestamp);
         const diffSeconds = Math.round((now - savedDate) / 1000);
         
-        if (diffSeconds < 5) {
-            lastSavedSpan.textContent = 'Saved just now';
-        } else if (diffSeconds < 60) {
-            lastSavedSpan.textContent = `Saved ${diffSeconds}s ago`;
-        } else {
+        if (diffSeconds < 5) lastSavedSpan.textContent = 'Saved just now';
+        else if (diffSeconds < 60) lastSavedSpan.textContent = `Saved ${diffSeconds}s ago`;
+        else {
             const diffMinutes = Math.round(diffSeconds / 60);
-            if (diffMinutes < 60) {
-                lastSavedSpan.textContent = `Saved ${diffMinutes}m ago`;
-            } else {
+            if (diffMinutes < 60) lastSavedSpan.textContent = `Saved ${diffMinutes}m ago`;
+            else {
                 const options = { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true };
-                lastSavedSpan.textContent = `Saved ${savedDate.toLocaleDateString(undefined, options)}`;
+                lastSavedSpan.textContent = `Saved: ${savedDate.toLocaleDateString(undefined, options)}`;
             }
         }
     };
@@ -306,22 +336,17 @@ document.addEventListener('DOMContentLoaded', () => {
         wordCountSpan.textContent = `Words: ${words.length}`;
     };
 
-    const updateDeletedCount = () => {
-        deletedCountSpan.textContent = deletedNotes.length;
-    };
+    const updateDeletedCount = () => { deletedCountSpan.textContent = deletedNotes.length; };
 
     const setupToolbar = () => {
-        const exec = (cmd, val = null) => {
-            document.execCommand(cmd, false, val);
-            editorContainer.focus();
-            handleNoteUpdate();
-        };
+        const exec = (cmd, val = null) => { document.execCommand(cmd, false, val); editorContainer.focus(); handleNoteUpdate(); };
         document.getElementById('boldBtn').addEventListener('click', () => exec('bold'));
         document.getElementById('italicBtn').addEventListener('click', () => exec('italic'));
         document.getElementById('underlineBtn').addEventListener('click', () => exec('underline'));
         document.getElementById('strikeBtn').addEventListener('click', () => exec('strikethrough'));
         document.getElementById('linkBtn').addEventListener('click', () => {
-            const url = prompt('Enter a URL:');
+            const currentSelection = window.getSelection().toString();
+            const url = prompt('Enter a URL:', currentSelection.startsWith('http') ? currentSelection : 'https://');
             if(url) exec('createLink', url);
         });
         document.getElementById('alignLeftBtn').addEventListener('click', () => exec('justifyLeft'));
@@ -330,23 +355,28 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('ulBtn').addEventListener('click', () => exec('insertUnorderedList'));
         document.getElementById('olBtn').addEventListener('click', () => exec('insertOrderedList'));
     };
+    
+    const setupEventListeners = () => {
+        themeToggleBtn.addEventListener('click', handleThemeToggle);
+        newNoteBtn.addEventListener('click', () => createNewNote());
+        deleteNoteBtn.addEventListener('click', deleteCurrentNote);
+        recycleBinLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (!isRecycleBinViewActive) showRecycleBinView();
+        });
+        searchInput.addEventListener('input', renderNotesList);
+        sortOrderSelect.addEventListener('change', (e) => {
+            currentSortOrder = e.target.value;
+            saveData();
+            renderNotesList();
+        });
+        noteTitleInput.addEventListener('input', handleNoteUpdate);
+        editorContainer.addEventListener('input', handleNoteUpdate);
+        editorContainer.addEventListener('paste', handlePaste);
+    }
 
     // --- INITIALIZATION ---
-    themeToggleBtn.addEventListener('click', handleThemeToggle);
-    newNoteBtn.addEventListener('click', createNewNote);
-    deleteNoteBtn.addEventListener('click', deleteCurrentNote);
-    recycleBinLink.addEventListener('click', () => { if (!isRecycleBinViewActive) showRecycleBinView(); });
-    searchInput.addEventListener('input', renderNotesList);
-    sortOrderSelect.addEventListener('change', (e) => {
-        currentSortOrder = e.target.value;
-        saveData();
-        renderNotesList();
-    });
-    
-    noteTitleInput.addEventListener('input', handleNoteUpdate);
-    editorContainer.addEventListener('input', handleNoteUpdate);
-    editorContainer.addEventListener('paste', handlePaste);
-
     loadData();
     setupToolbar();
+    setupEventListeners();
 });

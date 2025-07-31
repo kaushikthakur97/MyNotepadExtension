@@ -46,13 +46,16 @@
                     <button id="ulBtn" class="toolbar-btn"><i class="fas fa-list-ul"></i></button>
                     <button id="olBtn" class="toolbar-btn"><i class="fas fa-list-ol"></i></button>
                 </div>
-
-                <div id="editor" class="editor" contenteditable="true"></div>
+                
+                <!-- THE FIXES ARE HERE -->
+                <div id="editor" class="editor" contenteditable="true" spellcheck="false"></div>
             </div>
 
             <div class="editor-footer">
                 <span id="lastSaved"></span>
-                <span id="wordCount">Words: 0</span> | <span id="charCount">Characters: 0</span>
+                <span class="editor-stats">
+                    <span id="wordCount">Words: 0</span> | <span id="charCount">Characters: 0</span>
+                </span>
             </div>
         </div>
     </div>
