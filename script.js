@@ -67,6 +67,134 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastFindQuery = '';
     let fontSize = 16;
 
+    // --- TOOLTIP SYSTEM ---
+    const customTooltip = document.getElementById('customTooltip');
+    const tooltipWhat = customTooltip.querySelector('.tooltip-what');
+    const tooltipWhy = customTooltip.querySelector('.tooltip-why');
+    let tooltipTimer = null;
+    let tooltipTarget = null;
+
+    const TOOLTIPS = {
+        themeToggleBtn:        ['Cycle Theme', 'Switch between Light, Dark, Slate, and Glassmorphism — pick what is easiest on your eyes for the time of day.'],
+        focusModeBtn:          ['Focus Mode', 'Hides the sidebar and toolbars so you can write without distractions. Toolbars fade in when you hover over them.'],
+        screenshotBtn:         ['Screenshot Capture', 'Save what you see on screen as a note. Choose visible area, full page scroll, or download directly as a PNG file.'],
+        exportNoteBtn:         ['Export Note', 'Download your note as a .txt (plain text) or .md (Markdown) file to share or back up outside the browser.'],
+        importNoteBtn:         ['Import Notes', 'Bring in .txt, .md, or .json files from your computer — great for migrating notes from other apps.'],
+        printNoteBtn:          ['Print Note', 'Opens a clean print-ready preview with proper formatting so you can have a physical copy or save as PDF.'],
+        duplicateNoteBtn:      ['Duplicate Note', 'Clones the current note instantly — useful for making variations or templates without losing the original.'],
+        deleteNoteBtn:         ['Delete Note', 'Moves the current note to the Recycle Bin where you can recover it later if needed. Permanent delete requires confirmation.'],
+        newNoteBtn:            ['New Note', 'Starts a fresh blank note. All notes auto-save as you type — no risk of losing work.'],
+
+        undoBtn:               ['Undo', 'Reverts your last edit. Essential safety net when you change your mind or make a mistake (Ctrl+Z).'],
+        redoBtn:               ['Redo', 'Re-applies an edit you just undid. Toggle back and forth to compare versions (Ctrl+Y).'],
+        boldBtn:               ['Bold', 'Makes text stand out for headings, key terms, or emphasis. Use sparingly for maximum impact.'],
+        italicBtn:              ['Italic', 'Adds gentle emphasis — ideal for book titles, foreign words, or subtle stress on a phrase.'],
+        underlineBtn:           ['Underline', 'Draws attention to specific text. Traditionally used for links or legal citations.'],
+        strikeBtn:              ['Strikethrough', 'Visually marks text as removed or completed while keeping it readable — perfect for to-do lists.'],
+        linkBtn:                ['Insert Link', 'Turns selected text into a clickable hyperlink. Great for referencing websites, docs, or email addresses.'],
+        alignLeftBtn:           ['Align Left', 'Standard left alignment — the most readable option for continuous prose in Western languages.'],
+        alignCenterBtn:         ['Align Center', 'Centres your text — ideal for titles, poems, invitations, or any short decorative text.'],
+        alignRightBtn:          ['Align Right', 'Right-aligns text — useful for dates, signatures, or languages that read right-to-left.'],
+        ulBtn:                  ['Bulleted List', 'Creates an unordered list. Use when the order does not matter — brainstorming, shopping lists, pros/cons.'],
+        olBtn:                  ['Numbered List', 'Creates an ordered list. Use when sequence matters — steps, rankings, or priority items.'],
+        codeBlockBtn:           ['Code Block', 'Wraps text in a monospace code block with a distinct background — keeps code snippets readable and separate from prose.'],
+        tableBtn:               ['Insert Table', 'Creates an editable grid — perfect for comparing options, tracking data, or laying out structured information.'],
+        hrBtn:                  ['Horizontal Rule', 'Inserts a dividing line to separate sections — helps organize long notes into logical chunks.'],
+        fontSizeDecreaseBtn:    ['Smaller Text', 'Shrinks the editor font by 1px. Helps fit more content on screen or reduce eye strain on large monitors.'],
+        fontSizeResetBtn:       ['Reset Font Size', 'Returns the editor font to the default 16px — your baseline for comfortable reading.'],
+        fontSizeIncreaseBtn:    ['Larger Text', 'Enlarges the editor font by 1px. Easier on the eyes during long writing sessions or on high-DPI screens.'],
+        foreColorBtn:           ['Text Colour', 'Changes the colour of selected text — use colour to categorize, highlight importance, or add personality.'],
+        backColorBtn:           ['Highlight Colour', 'Adds a background colour behind text — like a digital highlighter for marking key passages.'],
+        clearFormatBtn:         ['Clear Formatting', 'Strips all bold, colours, sizes, and styles from selected text — restores plain default appearance instantly.'],
+        spellCheckBtn:          ['Spell Check', 'Toggles browser spell-checking (red underlines). Turn on for important writing, turn off for code or casual notes.'],
+
+        searchInput:            ['Search Notes', 'Filters notes by title and content as you type — find any note in seconds, even across hundreds of entries.'],
+        sortOrderSelect:        ['Sort Order', 'Changes how notes are ordered in the sidebar. Newest first keeps recent work handy; A–Z helps when browsing by topic.'],
+        categoryFilterSelect:   ['Filter by Category', 'Shows only notes tagged with a specific category — a quick way to focus on work, personal, or ideas.'],
+        categorySelect:         ['Note Category', 'Assign a colour-coded category to this note. Categories help you group and filter related notes together.'],
+        recycleBinLink:         ['Recycle Bin', 'View deleted notes. You can restore them with one click or permanently delete them after confirmation.'],
+
+        findPrevBtn:            ['Previous Match', 'Jumps to the previous occurrence of your search term — cycle backward through results.'],
+        findNextBtn:            ['Next Match', 'Jumps to the next occurrence — cycle forward. Press Enter in the search box to go next, Shift+Enter for previous.'],
+        findCaseBtn:            ['Case Sensitive', 'When active, "Apple" will not match "apple". Toggle this to narrow or broaden your search results.'],
+        findCloseBtn:           ['Close Search', 'Closes the find bar and removes all highlights — press Escape as a shortcut.'],
+        replaceBtn:             ['Replace One', 'Replaces only the currently highlighted match. Use this for careful, case-by-case changes.'],
+        replaceAllBtn:          ['Replace All', 'Replaces every match in the entire note at once. Safe — you can always Undo if you change your mind.'],
+        
+        noteTitleInput:         ['Note Title', 'Give your note a descriptive name — titles help you find it later when searching or browsing the list.'],
+        editor:                 ['Editor', 'Start typing here. Use the toolbar above for rich formatting. Your content auto-saves as you type.'],
+    };
+
+    const showTooltip = (target) => {
+        const tip = TOOLTIPS[target.id];
+        if (!tip) return;
+        tooltipTarget = target;
+        tooltipWhat.textContent = tip[0];
+        tooltipWhy.textContent = tip[1];
+        positionAndShowTooltip(target);
+    };
+
+    const hideTooltip = () => {
+        tooltipTarget = null;
+        customTooltip.classList.remove('show');
+        clearTimeout(tooltipTimer);
+    };
+
+    const setupTooltips = () => {
+        document.addEventListener('mouseover', (e) => {
+            const target = e.target.closest('[id]') || e.target.closest('[data-tip]');
+            if (!target || target === tooltipTarget) return;
+            clearTimeout(tooltipTimer);
+            hideTooltip();
+            
+            if (target.dataset.tip) {
+                tooltipTimer = setTimeout(() => {
+                    tooltipTarget = target;
+                    tooltipWhat.textContent = target.dataset.tip;
+                    tooltipWhy.textContent = target.dataset.tipWhy || '';
+                    positionAndShowTooltip(target);
+                }, 400);
+            } else if (TOOLTIPS[target.id]) {
+                tooltipTimer = setTimeout(() => showTooltip(target), 400);
+            }
+        });
+        
+        document.addEventListener('mouseout', (e) => {
+            const target = e.target.closest('[id]') || e.target.closest('[data-tip]');
+            if (target && target === tooltipTarget) {
+                clearTimeout(tooltipTimer);
+                hideTooltip();
+            }
+        });
+        
+        document.addEventListener('mouseover', (e) => {
+            const opt = e.target.closest('.dropdown-option');
+            if (!opt) return;
+            const dropdown = opt.closest('.dropdown-menu');
+            if (!dropdown) return;
+            const triggerBtn = dropdown.previousElementSibling;
+            if (triggerBtn && TOOLTIPS[triggerBtn.id]) {
+                clearTimeout(tooltipTimer);
+                hideTooltip();
+                tooltipTimer = setTimeout(() => showTooltip(triggerBtn), 400);
+            }
+        });
+    };
+
+    const positionAndShowTooltip = (target) => {
+        const rect = target.getBoundingClientRect();
+        let left = rect.left;
+        let top = rect.bottom + 6;
+        customTooltip.style.display = 'block';
+        const ttRect = customTooltip.getBoundingClientRect();
+        if (left + ttRect.width > window.innerWidth - 8) left = window.innerWidth - ttRect.width - 8;
+        if (top + ttRect.height > window.innerHeight - 8) top = rect.top - ttRect.height - 6;
+        if (left < 4) left = 4;
+        customTooltip.style.left = left + 'px';
+        customTooltip.style.top = top + 'px';
+        customTooltip.classList.add('show');
+    };
+
     // --- DATA MANAGEMENT ---
     const saveData = () => {
         chrome.storage.local.set({ notes, deletedNotes, sortOrder: currentSortOrder, theme: currentTheme });
@@ -149,7 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let html = `
             <div class="recycle-bin-header">
                 <h3>Recycle Bin</h3>
-                <button class="back-to-notes-btn">Back to Notes</button>
+                <button class="back-to-notes-btn" data-tip="Back to Notes" data-tip-why="Returns to the main editor view. Your deleted notes will still be here when you come back.">Back to Notes</button>
             </div>`;
 
         if (deletedNotes.length === 0) {
@@ -157,11 +285,11 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             const sortedDeleted = [...deletedNotes].sort((a, b) => b.lastModified - a.lastModified);
             html += sortedDeleted.map(note => `
-                <div class="deleted-note-item" data-id="${note.id}">
+                <div class="deleted-note-item" data-id="${note.id}" data-tip="${note.title.trim() || 'Untitled Note'}" data-tip-why="Deleted ${new Date(note.lastModified).toLocaleDateString()}. Restore to bring it back or delete permanently to free up space.">
                     <span class="deleted-note-title">${note.title.trim() || 'Untitled Note'}</span>
                     <div class="deleted-note-actions">
-                        <button class="restore-btn" title="Restore Note"><i class="fas fa-undo"></i></button>
-                        <button class="perm-delete-btn" title="Delete Permanently"><i class="fas fa-trash-alt"></i></button>
+                        <button class="restore-btn" data-tip="Restore" data-tip-why="Moves this note back to your active notes list — nothing is ever truly lost."><i class="fas fa-undo"></i></button>
+                        <button class="perm-delete-btn" data-tip="Delete Forever" data-tip-why="Permanently removes this note. This action cannot be undone — confirm before proceeding."><i class="fas fa-trash-alt"></i></button>
                     </div>
                 </div>`).join('');
         }
@@ -570,8 +698,11 @@ document.addEventListener('DOMContentLoaded', () => {
             item.dataset.id = note.id;
             const displayTitle = note.title.trim() || note.content.replace(/<[^>]*>/g, ' ').trim().substring(0, 40) || 'Untitled Note';
             const categoryDot = note.category ? `<span class="note-category ${note.category}"></span>` : '';
+            const preview = note.content.replace(/<[^>]*>/g, ' ').trim().substring(0, 80);
+            item.dataset.tip = note.title.trim() || 'Untitled Note';
+            item.dataset.tipWhy = preview || 'Click to open this note and start editing.';
 
-            item.innerHTML = `${categoryDot}<i class="fa-solid fa-thumbtack pin-icon" title="${note.isPinned ? 'Unpin Note' : 'Pin Note'}"></i><span class="note-title">${displayTitle}</span>`;
+            item.innerHTML = `${categoryDot}<i class="fa-solid fa-thumbtack pin-icon" title="${note.isPinned ? 'Unpin — keep at top of list' : 'Pin — keep at top of list'}"></i><span class="note-title">${displayTitle}</span>`;
             fragment.appendChild(item);
         });
 
@@ -1214,4 +1345,5 @@ document.addEventListener('DOMContentLoaded', () => {
     loadData();
     setupToolbar();
     setupEventListeners();
+    setupTooltips();
 });
