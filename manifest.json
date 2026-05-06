@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "My Tabbed Notepad",
-  "version": "1.5.0",
-  "description": "A feature-rich notepad with tabs, screenshots (visible/full-page), find & replace, categories, import/export, and keyboard shortcuts.",
+  "version": "2.0.0",
+  "description": "The ultimate notepad — command palette, templates, markdown view, reading mode, bulk ops, stats dashboard, rich tooltips, and more.",
   "permissions": [
     "storage",
     "activeTab",

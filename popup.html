@@ -27,6 +27,22 @@
                 </select>
             </div>
             <div id="notesList" class="notes-list"></div>
+            <div id="bulkActionsBar" class="bulk-actions-bar" style="display:none;">
+                <span id="bulkCount">0 selected</span>
+                <button id="bulkDeleteBtn" class="bulk-btn bulk-delete" title="Delete Selected"><i class="fas fa-trash"></i></button>
+                <button id="bulkExportBtn" class="bulk-btn bulk-export" title="Export Selected"><i class="fas fa-file-export"></i></button>
+                <button id="bulkCategoryBtn" class="bulk-btn bulk-category" title="Set Category">
+                    <select id="bulkCategorySelect">
+                        <option value="">Set Category...</option>
+                        <option value="work">💼 Work</option>
+                        <option value="personal">👤 Personal</option>
+                        <option value="ideas">💡 Ideas</option>
+                        <option value="todo">✅ To-Do</option>
+                        <option value="reference">📚 Reference</option>
+                    </select>
+                </button>
+                <button id="bulkClearBtn" class="bulk-btn" title="Clear Selection"><i class="fas fa-times"></i></button>
+            </div>
             <div class="sidebar-footer">
                 <a href="#" id="recycleBinLink">Recycle Bin (<span id="deletedCount">0</span>)</a>
             </div>
@@ -35,7 +51,19 @@
         <div class="main-content">
             <div class="top-controls">
                 <button id="themeToggleBtn" title="Toggle Theme"><i class="fas fa-palette"></i></button>
+                <button id="statsBtn" title="Note Statistics"><i class="fas fa-chart-bar"></i></button>
                 <button id="focusModeBtn" title="Focus Mode (Ctrl+Shift+F)"><i class="fas fa-expand"></i></button>
+                <div class="dropdown-wrapper">
+                    <button id="templateBtn" title="Templates"><i class="fas fa-layer-group"></i><span class="export-caret">▾</span></button>
+                    <div class="dropdown-menu" id="templateDropdown">
+                        <button class="dropdown-option" data-template="meeting">📋 Meeting Notes</button>
+                        <button class="dropdown-option" data-template="journal">📔 Daily Journal</button>
+                        <button class="dropdown-option" data-template="tasks">✅ Task List</button>
+                        <button class="dropdown-option" data-template="project">🚀 Project Plan</button>
+                        <button class="dropdown-option" data-template="brainstorm">💡 Brainstorming</button>
+                        <button class="dropdown-option" data-template="research">🔍 Research Notes</button>
+                    </div>
+                </div>
                 <div class="dropdown-wrapper">
                     <button id="screenshotBtn" title="Capture Screenshot"><i class="fas fa-camera"></i><span class="export-caret">▾</span></button>
                     <div class="dropdown-menu" id="screenshotDropdown">
@@ -105,6 +133,8 @@
                     <button id="clearFormatBtn" class="toolbar-btn" title="Clear Formatting"><i class="fas fa-text-slash"></i></button>
                     <span class="toolbar-separator"></span>
                     <button id="spellCheckBtn" class="toolbar-btn" title="Spell Check (Off)"><i class="fas fa-spell-check"></i></button>
+                    <span class="toolbar-separator"></span>
+                    <button id="markdownToggleBtn" class="toolbar-btn" title="Toggle Markdown View"><i class="fas fa-markdown"></i></button>
                 </div>
                 
                 <div id="editor" class="editor" contenteditable="true" spellcheck="false"></div>
@@ -143,6 +173,62 @@
     <div id="customTooltip" class="custom-tooltip" style="display:none;">
         <div class="tooltip-what"></div>
         <div class="tooltip-why"></div>
+    </div>
+
+    <!-- COMMAND PALETTE -->
+    <div id="commandPalette" class="command-palette-overlay" style="display:none;">
+        <div class="command-palette-modal">
+            <div class="cp-header">
+                <i class="fas fa-terminal"></i>
+                <input type="text" id="cpInput" placeholder="Type a command...">
+                <span class="cp-hint">ESC to close</span>
+            </div>
+            <div id="cpResults" class="cp-results"></div>
+        </div>
+    </div>
+
+    <!-- STATS DASHBOARD -->
+    <div id="statsDashboard" class="stats-overlay" style="display:none;">
+        <div class="stats-panel">
+            <div class="stats-header">
+                <h3>📊 Note Statistics</h3>
+                <button id="statsCloseBtn" class="stats-close">&times;</button>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card"><div class="stat-value" id="statTotalNotes">0</div><div class="stat-label">Total Notes</div></div>
+                <div class="stat-card"><div class="stat-value" id="statTotalWords">0</div><div class="stat-label">Total Words</div></div>
+                <div class="stat-card"><div class="stat-value" id="statTotalChars">0</div><div class="stat-label">Characters</div></div>
+                <div class="stat-card"><div class="stat-value" id="statAvgWords">0</div><div class="stat-label">Avg Words/Note</div></div>
+            </div>
+            <div class="stats-section">
+                <h4>Category Breakdown</h4>
+                <div id="statCategories"></div>
+            </div>
+            <div class="stats-section">
+                <h4>Activity</h4>
+                <div class="stat-row"><span>Notes this week</span><span id="statWeekNotes">0</span></div>
+                <div class="stat-row"><span>Notes this month</span><span id="statMonthNotes">0</span></div>
+                <div class="stat-row"><span>Deleted notes in bin</span><span id="statBinCount">0</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- READING MODE -->
+    <div id="readingMode" class="reading-mode-overlay" style="display:none;">
+        <div class="reading-container">
+            <div class="reading-toc" id="readingToc">
+                <h4>📑 Contents</h4>
+                <div id="tocList"></div>
+            </div>
+            <div class="reading-content">
+                <div class="reading-meta">
+                    <span id="readingTime"></span>
+                    <span id="readingWordCount"></span>
+                </div>
+                <div id="readingBody" class="reading-body"></div>
+            </div>
+            <button id="readingCloseBtn" class="reading-close" title="Exit Reading Mode">&times;</button>
+        </div>
     </div>
 
     <script src="script.js"></script>

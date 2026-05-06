@@ -53,6 +53,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const undoBtn = document.getElementById('undoBtn');
     const redoBtn = document.getElementById('redoBtn');
 
+    // New feature DOM elements
+    const statsBtn = document.getElementById('statsBtn');
+    const templateBtn = document.getElementById('templateBtn');
+    const templateDropdown = document.getElementById('templateDropdown');
+    const markdownToggleBtn = document.getElementById('markdownToggleBtn');
+    const bulkActionsBar = document.getElementById('bulkActionsBar');
+    const bulkCount = document.getElementById('bulkCount');
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+    const bulkExportBtn = document.getElementById('bulkExportBtn');
+    const bulkCategorySelect = document.getElementById('bulkCategorySelect');
+    const bulkClearBtn = document.getElementById('bulkClearBtn');
+    const commandPalette = document.getElementById('commandPalette');
+    const cpInput = document.getElementById('cpInput');
+    const cpResults = document.getElementById('cpResults');
+    const statsDashboard = document.getElementById('statsDashboard');
+    const statsCloseBtn = document.getElementById('statsCloseBtn');
+    const readingMode = document.getElementById('readingMode');
+    const readingBody = document.getElementById('readingBody');
+    const readingToc = document.getElementById('readingToc');
+    const tocList = document.getElementById('tocList');
+    const readingTimeSpan = document.getElementById('readingTime');
+    const readingWordCountSpan = document.getElementById('readingWordCount');
+    const readingCloseBtn = document.getElementById('readingCloseBtn');
+
     // --- State Variables ---
     let notes = [];
     let deletedNotes = [];
@@ -66,6 +90,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let findCaseSensitive = false;
     let lastFindQuery = '';
     let fontSize = 16;
+    let isMarkdownView = false;
+    let selectedNoteIds = new Set();
+    let isBulkMode = false;
 
     // --- TOOLTIP SYSTEM ---
     const customTooltip = document.getElementById('customTooltip');
@@ -108,6 +135,9 @@ document.addEventListener('DOMContentLoaded', () => {
         clearFormatBtn:         ['Clear Formatting', 'Strips all bold, colours, sizes, and styles from selected text — restores plain default appearance instantly.'],
         spellCheckBtn:          ['Spell Check', 'Toggles browser spell-checking (red underlines). Turn on for important writing, turn off for code or casual notes.'],
 
+        markdownToggleBtn:      ['Toggle Markdown View', 'Switch between rich WYSIWYG editing and raw Markdown source. Edit visually or hack plain text — same content, two views.'],
+        statsBtn:               ['Statistics Dashboard', 'See your writing activity: total words, notes per category, weekly/monthly output, and more.'],
+        templateBtn:            ['Templates', 'Skip the blank page. Choose from 6 pre-made templates — meeting notes, journal, tasks, project plan, brainstorm, and research.'],
         searchInput:            ['Search Notes', 'Filters notes by title and content as you type — find any note in seconds, even across hundreds of entries.'],
         sortOrderSelect:        ['Sort Order', 'Changes how notes are ordered in the sidebar. Newest first keeps recent work handy; A–Z helps when browsing by topic.'],
         categoryFilterSelect:   ['Filter by Category', 'Shows only notes tagged with a specific category — a quick way to focus on work, personal, or ideas.'],
@@ -701,8 +731,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const preview = note.content.replace(/<[^>]*>/g, ' ').trim().substring(0, 80);
             item.dataset.tip = note.title.trim() || 'Untitled Note';
             item.dataset.tipWhy = preview || 'Click to open this note and start editing.';
+            const checked = selectedNoteIds.has(note.id) ? 'checked' : '';
 
-            item.innerHTML = `${categoryDot}<i class="fa-solid fa-thumbtack pin-icon" title="${note.isPinned ? 'Unpin — keep at top of list' : 'Pin — keep at top of list'}"></i><span class="note-title">${displayTitle}</span>`;
+            item.innerHTML = `${isBulkMode ? `<input type="checkbox" class="bulk-checkbox" ${checked}>` : ''}${categoryDot}<i class="fa-solid fa-thumbtack pin-icon" title="${note.isPinned ? 'Unpin — keep at top of list' : 'Pin — keep at top of list'}"></i><span class="note-title">${displayTitle}</span>`;
             fragment.appendChild(item);
         });
 
@@ -734,6 +765,12 @@ document.addEventListener('DOMContentLoaded', () => {
             categorySelect.value = note.category || '';
             updateNoteInfo(note);
             updateLastSavedDisplay(note.lastModified);
+            // Reset markdown view state when loading a new note
+            if (isMarkdownView) {
+                isMarkdownView = false;
+                editorContainer.classList.remove('markdown-source');
+                markdownToggleBtn.classList.remove('markdown-toggle-active');
+            }
         } else {
             noteTitleInput.value = 'Select a Note';
             editorContainer.innerHTML = '<div class="empty-state">Select a note from the list or create a new one!</div>';
@@ -1052,6 +1089,448 @@ document.addEventListener('DOMContentLoaded', () => {
         spellCheckBtn.classList.toggle('active', enabled);
         showToast(enabled ? 'Spell check ON' : 'Spell check OFF', 'info');
     };
+
+    // ================================================================
+    // TEMPLATES
+    // ================================================================
+    const TEMPLATES = {
+        meeting: {
+            title: 'Meeting Notes',
+            content: `<h2>📋 Meeting: [Topic]</h2>
+<p><b>Date:</b> ${new Date().toLocaleDateString()}</p>
+<p><b>Attendees:</b> </p>
+<p><b>Agenda:</b></p>
+<ul><li></li><li></li></ul>
+<hr>
+<h3>Notes</h3>
+<p></p>
+<h3>Action Items</h3>
+<ul><li>[ ] Task 1 — <i>Owner</i></li><li>[ ] Task 2 — <i>Owner</i></li></ul>
+<h3>Next Meeting</h3>
+<p>Date: </p>`
+        },
+        journal: {
+            title: `Journal — ${new Date().toLocaleDateString()}`,
+            content: `<h2>📔 Daily Journal</h2>
+<p><b>${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</b></p>
+<hr>
+<h3>Morning Reflection</h3>
+<p>Today I'm grateful for...</p>
+<p>My top priority is...</p>
+<h3>What Happened Today</h3>
+<p></p>
+<h3>Evening Reflection</h3>
+<p>What went well:</p><ul><li></li></ul>
+<p>What I'd improve:</p><ul><li></li></ul>`
+        },
+        tasks: {
+            title: 'Task List',
+            content: `<h2>✅ Tasks</h2>
+<p><b>Priority:</b> 🔴 High</p>
+<ul><li>[ ] </li><li>[ ] </li></ul>
+<p><b>Priority:</b> 🟡 Medium</p>
+<ul><li>[ ] </li><li>[ ] </li></ul>
+<p><b>Priority:</b> 🟢 Low</p>
+<ul><li>[ ] </li><li>[ ] </li></ul>
+<hr><p><i>Last updated: ${new Date().toLocaleString()}</i></p>`
+        },
+        project: {
+            title: 'Project Plan',
+            content: `<h2>🚀 Project: [Name]</h2>
+<p><b>Goal:</b> </p>
+<p><b>Timeline:</b> Start — End</p>
+<hr>
+<h3>Milestones</h3>
+<ol><li><b>[Milestone 1]</b> — Due: <ul><li>Subtask</li><li>Subtask</li></ul></li>
+<li><b>[Milestone 2]</b> — Due: <ul><li>Subtask</li></ul></li></ol>
+<h3>Risks & Dependencies</h3>
+<ul><li></li></ul>
+<h3>Notes</h3>
+<p></p>`
+        },
+        brainstorm: {
+            title: 'Brainstorming Session',
+            content: `<h2>💡 Brainstorm: [Topic]</h2>
+<p><b>Goal:</b> Generate ideas for...</p>
+<hr>
+<h3>Ideas (no filter)</h3>
+<ul><li></li><li></li><li></li><li></li><li></li></ul>
+<h3>Top Picks</h3>
+<ol><li></li><li></li><li></li></ol>
+<h3>Next Steps</h3>
+<ul><li>[ ] Research feasibility</li><li>[ ] Prototype top idea</li></ul>`
+        },
+        research: {
+            title: 'Research Notes',
+            content: `<h2>🔍 Research: [Topic]</h2>
+<p><b>Question:</b> </p>
+<p><b>Sources:</b></p>
+<ol><li><a href="#">[Source Title]</a> — Key takeaway</li><li><a href="#">[Source Title]</a> — Key takeaway</li></ol>
+<hr>
+<h3>Key Findings</h3>
+<ul><li></li><li></li></ul>
+<h3>Quotes & Excerpts</h3>
+<blockquote><p></p></blockquote>
+<h3>Open Questions</h3>
+<ul><li></li></ul>`
+        }
+    };
+
+    const applyTemplate = (templateName) => {
+        if (isRecycleBinViewActive) showEditorView();
+        const tpl = TEMPLATES[templateName];
+        if (!tpl) return;
+        
+        const newNote = {
+            id: Date.now(),
+            title: tpl.title,
+            content: tpl.content,
+            category: templateName === 'tasks' ? 'todo' : templateName === 'brainstorm' ? 'ideas' : templateName === 'research' ? 'reference' : '',
+            isPinned: false,
+            createdAt: Date.now(),
+            lastModified: Date.now()
+        };
+        notes.unshift(newNote);
+        currentNoteId = newNote.id;
+        saveData();
+        categoryFilterSelect.value = '';
+        renderNotesList();
+        loadNoteContent();
+        showToast(`"${tpl.title}" template applied!`, 'success');
+        setTimeout(() => editorContainer.focus(), 100);
+    };
+
+    // ================================================================
+    // COMMAND PALETTE
+    // ================================================================
+    const COMMANDS = [
+        { name: 'New Note', icon: 'fa-plus', desc: 'Create a blank note', keys: ['Ctrl+N'], action: () => createNewNote() },
+        { name: 'Delete Note', icon: 'fa-trash', desc: 'Move current note to recycle bin', keys: ['Ctrl+Shift+D'], action: deleteCurrentNote },
+        { name: 'Duplicate Note', icon: 'fa-copy', desc: 'Clone the current note', keys: ['Ctrl+D'], action: duplicateNote },
+        { name: 'Export as .txt', icon: 'fa-file-alt', desc: 'Download note as plain text file', keys: ['Ctrl+E'], action: exportCurrentNote },
+        { name: 'Export as Markdown', icon: 'fa-markdown', desc: 'Download note as .md file', keys: ['Ctrl+Shift+E'], action: exportCurrentNoteAsMarkdown },
+        { name: 'Import Notes', icon: 'fa-file-import', desc: 'Import .txt, .md, or .json files', action: () => importFileInput.click() },
+        { name: 'Print Note', icon: 'fa-print', desc: 'Open print-ready preview', keys: ['Ctrl+P'], action: printCurrentNote },
+        { name: 'Find in Note', icon: 'fa-search', desc: 'Search within the current note', keys: ['Ctrl+F'], action: () => openFindBar() },
+        { name: 'Find & Replace', icon: 'fa-exchange-alt', desc: 'Search and replace text in note', keys: ['Ctrl+H'], action: () => openFindBar(true) },
+        { name: 'Toggle Focus Mode', icon: 'fa-expand', desc: 'Hide distractions for deep writing', keys: ['Ctrl+Shift+F'], action: toggleFocusMode },
+        { name: 'Toggle Markdown View', icon: 'fa-code', desc: 'Switch between WYSIWYG and raw markdown', action: toggleMarkdownView },
+        { name: 'Reading Mode', icon: 'fa-book-open', desc: 'Read note with clean typography and TOC', action: openReadingMode },
+        { name: 'Statistics Dashboard', icon: 'fa-chart-bar', desc: 'View writing stats and category breakdown', action: openStats },
+        { name: 'Capture Visible Tab', icon: 'fa-camera', desc: 'Screenshot visible area as a note', action: () => captureAndSaveScreenshot('visible') },
+        { name: 'Capture Full Page', icon: 'fa-images', desc: 'Screenshot entire scrollable page', action: () => captureAndSaveScreenshot('fullpage') },
+        { name: 'Save Screenshot as File', icon: 'fa-download', desc: 'Download screenshot as PNG file', action: () => captureAndSaveScreenshot('save') },
+        { name: 'Apply Meeting Template', icon: 'fa-clipboard-list', desc: 'Pre-formatted meeting notes structure', action: () => applyTemplate('meeting') },
+        { name: 'Apply Journal Template', icon: 'fa-book', desc: 'Daily reflection and gratitude journal', action: () => applyTemplate('journal') },
+        { name: 'Apply Task Template', icon: 'fa-check-square', desc: 'Priority-based to-do list', action: () => applyTemplate('tasks') },
+        { name: 'Apply Project Template', icon: 'fa-rocket', desc: 'Project plan with milestones', action: () => applyTemplate('project') },
+        { name: 'Apply Brainstorm Template', icon: 'fa-lightbulb', desc: 'Free-form ideation session', action: () => applyTemplate('brainstorm') },
+        { name: 'Apply Research Template', icon: 'fa-microscope', desc: 'Structured research notes with sources', action: () => applyTemplate('research') },
+        { name: 'Recycle Bin', icon: 'fa-recycle', desc: 'View and recover deleted notes', action: () => showRecycleBinView() },
+        { name: 'Cycle Theme', icon: 'fa-palette', desc: 'Switch between Light, Dark, Slate, Glass', action: handleThemeToggle },
+        { name: 'Toggle Spell Check', icon: 'fa-spell-check', desc: 'Enable or disable browser spell checking', action: toggleSpellCheck },
+        { name: 'Undo', icon: 'fa-undo', desc: 'Revert last edit', keys: ['Ctrl+Z'], action: () => { document.execCommand('undo'); editorContainer.focus(); } },
+        { name: 'Redo', icon: 'fa-redo', desc: 'Re-apply undone edit', keys: ['Ctrl+Y'], action: () => { document.execCommand('redo'); editorContainer.focus(); } },
+    ];
+
+    let cpFiltered = [...COMMANDS];
+    let cpActiveIndex = 0;
+
+    const openCommandPalette = () => {
+        cpFiltered = [...COMMANDS];
+        cpActiveIndex = 0;
+        cpInput.value = '';
+        commandPalette.style.display = 'flex';
+        cpInput.focus();
+        renderCpResults();
+    };
+
+    const closeCommandPalette = () => {
+        commandPalette.style.display = 'none';
+    };
+
+    const renderCpResults = () => {
+        cpResults.innerHTML = '';
+        if (cpFiltered.length === 0) {
+            cpResults.innerHTML = '<div class="cp-empty">No matching commands</div>';
+            return;
+        }
+        cpFiltered.forEach((cmd, idx) => {
+            const item = document.createElement('div');
+            item.className = `cp-item${idx === cpActiveIndex ? ' active' : ''}`;
+            item.innerHTML = `
+                <div>
+                    <div class="cp-item-name"><i class="fas ${cmd.icon}"></i>${cmd.name}</div>
+                    <div class="cp-item-desc">${cmd.desc}</div>
+                </div>
+                ${cmd.keys ? cmd.keys.map(k => `<kbd>${k}</kbd>`).join('') : ''}
+            `;
+            item.addEventListener('click', () => { closeCommandPalette(); cmd.action(); });
+            cpResults.appendChild(item);
+        });
+    };
+
+    // ================================================================
+    // MARKDOWN TOGGLE
+    // ================================================================
+    const toggleMarkdownView = () => {
+        if (!currentNoteId || isRecycleBinViewActive) return;
+        isMarkdownView = !isMarkdownView;
+        markdownToggleBtn.classList.toggle('markdown-toggle-active', isMarkdownView);
+        
+        const note = notes.find(n => n.id === currentNoteId);
+        if (!note) return;
+        
+        if (isMarkdownView) {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = note.content;
+            editorContainer.textContent = htmlToMarkdown(tempDiv);
+            editorContainer.classList.add('markdown-source');
+            editorContainer.setAttribute('contenteditable', 'true');
+        } else {
+            const md = editorContainer.textContent;
+            const html = markdownToHtml(md);
+            editorContainer.innerHTML = html;
+            editorContainer.classList.remove('markdown-source');
+            note.content = editorContainer.innerHTML;
+            saveData();
+        }
+        updateWordCount();
+        showToast(isMarkdownView ? 'Markdown source view' : 'Rich text view', 'info');
+    };
+
+    const htmlToMarkdown = (node) => {
+        let md = '';
+        const walk = (n) => {
+            if (n.nodeType === Node.TEXT_NODE) { md += n.textContent; return; }
+            if (n.nodeType !== Node.ELEMENT_NODE) return;
+            const tag = n.tagName.toLowerCase();
+            const children = Array.from(n.childNodes);
+            switch (tag) {
+                case 'br': md += '\n'; break;
+                case 'p': case 'div': children.forEach(walk); md += '\n\n'; break;
+                case 'b': case 'strong': md += '**'; children.forEach(walk); md += '**'; break;
+                case 'i': case 'em': md += '*'; children.forEach(walk); md += '*'; break;
+                case 'u': md += '<u>'; children.forEach(walk); md += '</u>'; break;
+                case 's': case 'strike': case 'del': md += '~~'; children.forEach(walk); md += '~~'; break;
+                case 'a': md += '['; children.forEach(walk); md += `](${n.href || ''})`; break;
+                case 'ul': children.forEach(walk); break;
+                case 'ol': children.forEach((c, i) => { md += `${i + 1}. `; walk(c); }); break;
+                case 'li': children.forEach(walk); md += '\n'; break;
+                case 'img': md += `![${n.alt || ''}](${n.src})`; break;
+                case 'pre': md += '```\n'; children.forEach(walk); md += '\n```\n\n'; break;
+                case 'code': if (n.parentElement.tagName !== 'PRE') { md += '`'; children.forEach(walk); md += '`'; } else children.forEach(walk); break;
+                case 'h1': md += '# '; children.forEach(walk); md += '\n\n'; break;
+                case 'h2': md += '## '; children.forEach(walk); md += '\n\n'; break;
+                case 'h3': md += '### '; children.forEach(walk); md += '\n\n'; break;
+                case 'h4': md += '#### '; children.forEach(walk); md += '\n\n'; break;
+                case 'hr': md += '---\n\n'; break;
+                case 'blockquote': children.forEach(walk); break;
+                case 'table': case 'tr': children.forEach(walk); break;
+                case 'td': case 'th': children.forEach(walk); md += ' | '; break;
+                case 'mark': case 'span': children.forEach(walk); break;
+                default: children.forEach(walk); break;
+            }
+        };
+        Array.from(node.childNodes).forEach(walk);
+        return md.trim();
+    };
+
+    const markdownToHtml = (md) => {
+        let html = md
+            .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+            .replace(/`([^`]+)`/g, '<code>$1</code>')
+            .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
+            .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+            .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+            .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+            .replace(/^---$/gm, '<hr>')
+            .replace(/\*\*\*(.+?)\*\*\*/g, '<b><i>$1</i></b>')
+            .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+            .replace(/\*(.+?)\*/g, '<i>$1</i>')
+            .replace(/~~(.+?)~~/g, '<s>$1</s>')
+            .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">')
+            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
+            .replace(/\n\n/g, '</p><p>')
+            .replace(/\n/g, '<br>');
+        return '<p>' + html + '</p>';
+    };
+
+    // ================================================================
+    // BULK OPERATIONS
+    // ================================================================
+    const toggleBulkNote = (noteId) => {
+        if (selectedNoteIds.has(noteId)) selectedNoteIds.delete(noteId);
+        else selectedNoteIds.add(noteId);
+        updateBulkUI();
+    };
+
+    const updateBulkUI = () => {
+        if (selectedNoteIds.size > 0) {
+            isBulkMode = true;
+            bulkActionsBar.style.display = 'flex';
+            bulkCount.textContent = `${selectedNoteIds.size} selected`;
+        } else {
+            isBulkMode = false;
+            bulkActionsBar.style.display = 'none';
+        }
+        renderNotesList();
+    };
+
+    const bulkDelete = () => {
+        if (selectedNoteIds.size === 0) return;
+        if (!confirm(`Move ${selectedNoteIds.size} note(s) to Recycle Bin?`)) return;
+        
+        const toDelete = notes.filter(n => selectedNoteIds.has(n.id));
+        notes = notes.filter(n => !selectedNoteIds.has(n.id));
+        toDelete.forEach(n => { n.lastModified = Date.now(); deletedNotes.unshift(n); });
+        
+        if (selectedNoteIds.has(currentNoteId)) {
+            currentNoteId = notes.length > 0 ? notes[0].id : null;
+        }
+        selectedNoteIds.clear();
+        saveData();
+        updateDeletedCount();
+        updateBulkUI();
+        if (currentNoteId && !isRecycleBinViewActive) loadNoteContent();
+        showToast(`${toDelete.length} note(s) moved to bin.`, 'success');
+    };
+
+    const bulkExport = () => {
+        if (selectedNoteIds.size === 0) return;
+        const selected = notes.filter(n => selectedNoteIds.has(n.id));
+        let combined = '';
+        selected.forEach(note => {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = note.content;
+            combined += `# ${note.title}\n\n${tempDiv.textContent}\n\n---\n\n`;
+        });
+        const blob = new Blob([combined], { type: 'text/plain;charset=utf-8' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `notes_export_${Date.now()}.txt`;
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+        showToast(`${selected.length} note(s) exported.`, 'success');
+    };
+
+    const bulkSetCategory = (category) => {
+        if (!category || selectedNoteIds.size === 0) return;
+        notes.forEach(n => { if (selectedNoteIds.has(n.id)) n.category = category; });
+        saveData();
+        renderNotesList();
+        showToast(`${selectedNoteIds.size} note(s) categorized.`, 'success');
+    };
+
+    const clearBulkSelection = () => {
+        selectedNoteIds.clear();
+        updateBulkUI();
+    };
+
+    // ================================================================
+    // READING MODE
+    // ================================================================
+    const openReadingMode = () => {
+        if (!currentNoteId || isRecycleBinViewActive) return;
+        const note = notes.find(n => n.id === currentNoteId);
+        if (!note) return;
+        
+        readingBody.innerHTML = note.content;
+        
+        const text = readingBody.innerText;
+        const wordCount = text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
+        const readingTime = Math.max(1, Math.ceil(wordCount / 200));
+        readingTimeSpan.textContent = `⏱ ${readingTime} min read`;
+        readingWordCountSpan.textContent = `${wordCount} words`;
+        
+        // Build TOC from headings
+        const headings = readingBody.querySelectorAll('h1, h2, h3');
+        tocList.innerHTML = '';
+        if (headings.length === 0) {
+            tocList.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:8px;">No headings found</div>';
+        }
+        headings.forEach((h, i) => {
+            h.id = `toc-${i}`;
+            const item = document.createElement('a');
+            item.className = `toc-item ${h.tagName.toLowerCase()}`;
+            item.textContent = h.textContent.trim().substring(0, 50);
+            item.href = `#toc-${i}`;
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                h.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+            tocList.appendChild(item);
+        });
+        
+        readingMode.style.display = 'flex';
+        readingBody.focus();
+        showToast('Reading mode — press Escape to exit', 'info');
+    };
+
+    const closeReadingMode = () => {
+        readingMode.style.display = 'none';
+        editorContainer.focus();
+    };
+
+    // ================================================================
+    // STATISTICS DASHBOARD
+    // ================================================================
+    const openStats = () => {
+        computeAndRenderStats();
+        statsDashboard.style.display = 'flex';
+    };
+
+    const closeStats = () => {
+        statsDashboard.style.display = 'none';
+    };
+
+    const computeAndRenderStats = () => {
+        const totalNotes = notes.length;
+        let totalWords = 0, totalChars = 0;
+        const categoryMap = {};
+        
+        notes.forEach(n => {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = n.content;
+            const text = tempDiv.textContent || '';
+            const words = text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
+            totalWords += words;
+            totalChars += text.length;
+            
+            const cat = n.category || 'uncategorized';
+            categoryMap[cat] = (categoryMap[cat] || 0) + 1;
+        });
+        
+        document.getElementById('statTotalNotes').textContent = totalNotes;
+        document.getElementById('statTotalWords').textContent = totalWords.toLocaleString();
+        document.getElementById('statTotalChars').textContent = totalChars.toLocaleString();
+        document.getElementById('statAvgWords').textContent = totalNotes > 0 ? Math.round(totalWords / totalNotes) : 0;
+        
+        // Week & month counts
+        const now = Date.now();
+        const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
+        const monthAgo = now - 30 * 24 * 60 * 60 * 1000;
+        document.getElementById('statWeekNotes').textContent = notes.filter(n => n.createdAt > weekAgo).length;
+        document.getElementById('statMonthNotes').textContent = notes.filter(n => n.createdAt > monthAgo).length;
+        document.getElementById('statBinCount').textContent = deletedNotes.length;
+        
+        // Category breakdown
+        const catColors = { work: '#3b82f6', personal: '#10b981', ideas: '#f59e0b', todo: '#ef4444', reference: '#8b5cf6', uncategorized: '#9ca3af' };
+        const catNames = { work: 'Work', personal: 'Personal', ideas: 'Ideas', todo: 'To-Do', reference: 'Reference', uncategorized: 'Other' };
+        const catContainer = document.getElementById('statCategories');
+        catContainer.innerHTML = '';
+        Object.entries(categoryMap).sort((a, b) => b[1] - a[1]).forEach(([cat, count]) => {
+            catContainer.innerHTML += `
+                <div class="stat-category-bar">
+                    <span class="stat-category-dot" style="background:${catColors[cat] || '#999'}"></span>
+                    <span>${catNames[cat] || cat}</span>
+                    <span class="stat-category-count">${count}</span>
+                </div>`;
+        });
+        if (Object.keys(categoryMap).length === 0) {
+            catContainer.innerHTML = '<div class="empty-state">No categorized notes yet</div>';
+        }
+    };
     
     const showToast = (message, type = 'info') => {
         const toast = document.createElement('div');
@@ -1177,6 +1656,36 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         recycleBinLink.addEventListener('click', (e) => { e.preventDefault(); showRecycleBinView(); });
+        
+        // New feature buttons
+        statsBtn.addEventListener('click', openStats);
+        markdownToggleBtn.addEventListener('click', toggleMarkdownView);
+        readingCloseBtn.addEventListener('click', closeReadingMode);
+        statsCloseBtn.addEventListener('click', closeStats);
+        
+        // Template dropdown
+        templateBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            exportDropdown.classList.remove('show');
+            screenshotDropdown.classList.remove('show');
+            templateDropdown.classList.toggle('show');
+        });
+        templateDropdown.addEventListener('click', (e) => {
+            const option = e.target.closest('.dropdown-option');
+            if (!option) return;
+            e.stopPropagation();
+            templateDropdown.classList.remove('show');
+            applyTemplate(option.dataset.template);
+        });
+        
+        // Bulk action buttons
+        bulkDeleteBtn.addEventListener('click', bulkDelete);
+        bulkExportBtn.addEventListener('click', bulkExport);
+        bulkCategorySelect.addEventListener('change', (e) => {
+            bulkSetCategory(e.target.value);
+            bulkCategorySelect.value = '';
+        });
+        bulkClearBtn.addEventListener('click', clearBulkSelection);
 
         // Export dropdown option clicks
         exportDropdown.addEventListener('click', (e) => {
@@ -1203,6 +1712,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('click', () => {
             exportDropdown.classList.remove('show');
             screenshotDropdown.classList.remove('show');
+            templateDropdown.classList.remove('show');
         });
 
         // --- Find & Replace Bar Events ---
@@ -1254,27 +1764,71 @@ document.addEventListener('DOMContentLoaded', () => {
                 case 'p': e.preventDefault(); printCurrentNote(); break;
                 case 'f': e.preventDefault(); openFindBar(); break;
                 case 'h': e.preventDefault(); openFindBar(true); break;
+                case 'k': e.preventDefault(); openCommandPalette(); break;
+                case 'r': e.preventDefault(); openReadingMode(); break;
+                case 'b': e.preventDefault(); 
+                    isBulkMode = !isBulkMode;
+                    if (!isBulkMode) { selectedNoteIds.clear(); }
+                    updateBulkUI();
+                    renderNotesList();
+                    showToast(isBulkMode ? 'Bulk mode ON — select notes' : 'Bulk mode OFF', 'info');
+                    break;
                 case 'arrowup': e.preventDefault(); navigateNotes('up'); break;
                 case 'arrowdown': e.preventDefault(); navigateNotes('down'); break;
                 case 'escape': closeFindBar(); break;
             }
         });
 
-        // Close find bar on Escape when focused in find inputs
+        // Escape to close modals (CP, Stats, Reading)
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && findReplaceBar.style.display === 'block' && e.target === editorContainer) {
-                closeFindBar();
+            if (e.key === 'Escape') {
+                if (commandPalette.style.display === 'flex') { closeCommandPalette(); return; }
+                if (statsDashboard.style.display === 'flex') { closeStats(); return; }
+                if (readingMode.style.display === 'flex') { closeReadingMode(); return; }
+                if (findReplaceBar.style.display === 'block' && e.target === editorContainer) {
+                    closeFindBar();
+                }
             }
         });
+        
+        // Command palette input
+        cpInput.addEventListener('input', () => {
+            const q = cpInput.value.toLowerCase();
+            cpFiltered = COMMANDS.filter(c => c.name.toLowerCase().includes(q) || c.desc.toLowerCase().includes(q));
+            cpActiveIndex = 0;
+            renderCpResults();
+        });
+        cpInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') { closeCommandPalette(); return; }
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (cpFiltered[cpActiveIndex]) {
+                    closeCommandPalette();
+                    cpFiltered[cpActiveIndex].action();
+                }
+                return;
+            }
+            if (e.key === 'ArrowDown') { e.preventDefault(); cpActiveIndex = Math.min(cpActiveIndex + 1, cpFiltered.length - 1); renderCpResults(); }
+            if (e.key === 'ArrowUp') { e.preventDefault(); cpActiveIndex = Math.max(cpActiveIndex - 1, 0); renderCpResults(); }
+        });
+        
+        // Click outside command palette to close
+        commandPalette.addEventListener('click', (e) => { if (e.target === commandPalette) closeCommandPalette(); });
+        statsDashboard.addEventListener('click', (e) => { if (e.target === statsDashboard) closeStats(); });
 
         notesListContainer.addEventListener('click', (e) => {
             const noteItem = e.target.closest('.note-item');
             if (!noteItem) return;
             const noteId = Number(noteItem.dataset.id);
+            
+            if (e.target.matches('.bulk-checkbox')) {
+                toggleBulkNote(noteId);
+                return;
+            }
+            
             if (e.target.matches('.pin-icon')) {
                 togglePin(noteId);
             } else if (currentNoteId !== noteId || isRecycleBinViewActive) {
-                // If we are in the recycle bin, we MUST switch back to the editor view.
                 if (isRecycleBinViewActive) {
                     showEditorView();
                 }
