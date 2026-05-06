@@ -273,8 +273,17 @@ document.addEventListener('DOMContentLoaded', () => {
             document.documentElement.classList.add('has-glass-backdrop');
         }
 
+        const themeIcons = { light: 'fa-sun', dark: 'fa-moon', slate: 'fa-cloud-moon', glassmorphism: 'fa-wine-glass' };
+        const icon = themeToggleBtn.querySelector('i');
+        if (icon) {
+            icon.className = `fas ${themeIcons[currentTheme] || 'fa-palette'}`;
+        }
         const capitalizedTheme = currentTheme.charAt(0).toUpperCase() + currentTheme.slice(1);
-        themeToggleBtn.title = `Current Theme: ${capitalizedTheme} (Click to Cycle)`;
+        themeToggleBtn.title = `Current: ${capitalizedTheme} — Click to cycle`;
+        
+        body.style.transition = 'none';
+        body.offsetHeight;
+        body.style.transition = '';
     };
 
     const handleThemeToggle = () => {
@@ -282,7 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentTheme = themes[(currentIndex + 1) % themes.length];
         applyTheme();
         saveData();
-        showToast(`Theme changed to ${currentTheme.charAt(0).toUpperCase() + currentTheme.slice(1)}`, 'info');
+        showToast(`Theme: ${currentTheme.charAt(0).toUpperCase() + currentTheme.slice(1)}`, 'info');
     };
 
     // --- UI VIEW TOGGLING ---

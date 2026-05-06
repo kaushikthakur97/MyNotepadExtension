@@ -19,6 +19,26 @@
     --accent-negative-hover: #c82333;
     --accent-pin: #ffc107;
 }
+body.light-mode {
+    --bg-primary: #f7f9fc;
+    --bg-secondary: #fff;
+    --bg-tertiary: #f8f9fa;
+    --bg-accent-hover: #e9ecef;
+    --bg-accent-active: #dee2e6;
+    --bg-pinned: #fffbe6;
+    --bg-pinned-active: #f0e9c8;
+    --text-primary: #343a40;
+    --text-secondary: #495057;
+    --text-muted: #6c757d;
+    --border-color: #dee2e6;
+    --border-color-light: #f1f3f5;
+    --link-color: #007bff;
+    --accent-positive: #28a745;
+    --accent-positive-hover: #218838;
+    --accent-negative: #dc3545;
+    --accent-negative-hover: #c82333;
+    --accent-pin: #ffc107;
+}
 
 body.dark-mode {
     --bg-primary: #1e1e1e;
@@ -688,10 +708,17 @@ body.light-mode .custom-tooltip .tooltip-why { color: #555; }
    ============================================================ */
 .note-item { transition: background 0.12s ease, border-color 0.12s ease; }
 button { transition: color 0.15s ease, background 0.15s ease, transform 0.1s ease; }
-button:active { transform: scale(0.96); }
+.top-controls button:active, .sidebar button:active { transform: scale(0.96); }
 .toolbar-btn:active { transform: scale(0.92); }
 .editor-footer { transition: opacity 0.3s ease; }
 .sidebar { transition: width 0.3s ease; }
+body {
+    transition: background-color 0.4s ease, color 0.4s ease;
+}
+body *, .sidebar, .main-content, .top-controls, .editor, .editor-toolbar,
+.note-item, .editor-footer, .notes-list, .find-replace-bar, .note-editor-container {
+    transition: background-color 0.4s ease, color 0.3s ease, border-color 0.3s ease;
+}
 
 /* Select all checkbox */
 .sidebar-header .select-all-row {
