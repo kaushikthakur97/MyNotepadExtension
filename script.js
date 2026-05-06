@@ -235,7 +235,15 @@ document.addEventListener('DOMContentLoaded', () => {
             notes = result.notes || [];
             deletedNotes = result.deletedNotes || [];
             currentSortOrder = result.sortOrder || 'date-desc';
-            currentTheme = result.theme && themes.includes(result.theme) ? result.theme : 'glassmorphism'; 
+            currentTheme = result.theme && themes.includes(result.theme) ? result.theme : 'glassmorphism';
+            
+            // Migrate old notes to ensure new fields exist
+            let needsSave = false;
+            [...notes, ...deletedNotes].forEach(n => {
+                if (n.category === undefined) { n.category = ''; needsSave = true; }
+                if (!n.createdAt) { n.createdAt = n.lastModified || Date.now(); needsSave = true; }
+            });
+            if (needsSave) chrome.storage.local.set({ notes, deletedNotes });
             
             applyTheme();
             sortOrderSelect.value = currentSortOrder;

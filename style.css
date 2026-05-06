@@ -180,31 +180,35 @@ body {
     min-height: 0;
 }
 .top-controls {
-    display: flex; justify-content: flex-end; align-items: center; padding: 10px 15px;
-    border-bottom: 1px solid var(--border-color); background-color: var(--bg-secondary);
+    display: flex; justify-content: flex-end; align-items: center; gap: 4px;
+    padding: 8px 12px; border-bottom: 1px solid var(--border-color);
+    background-color: var(--bg-secondary); flex-wrap: wrap;
 }
-#themeToggleBtn { margin-right: auto; background: none; border: none; cursor: pointer; color: var(--text-secondary); font-size: 1.3em; padding: 0 5px;}
-#themeToggleBtn:hover { color: var(--text-primary); }
+#themeToggleBtn { margin-right: auto; background: none; border: none; cursor: pointer; color: var(--text-secondary); font-size: 1.2em; padding: 6px 8px; border-radius: 6px; }
+#themeToggleBtn:hover { color: var(--text-primary); background: var(--bg-accent-hover); }
 #newNoteBtn {
-    background-color: var(--accent-positive); color: white; border: none; padding: 8px 15px;
-    border-radius: 5px; cursor: pointer; font-weight: 500; font-size: 14px;
+    background-color: var(--accent-positive); color: white; border: none; padding: 7px 14px;
+    border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; white-space: nowrap;
 }
+#newNoteBtn:hover { background-color: var(--accent-positive-hover); }
 #deleteNoteBtn {
-    background: none; border: none; cursor: pointer; font-size: 1.3em;
-    color: var(--accent-negative); margin-right: 15px; padding: 0;
-}
-#deleteNoteBtn:hover { color: var(--accent-negative-hover); }
-
-#exportNoteBtn, #screenshotBtn, #focusModeBtn, #duplicateNoteBtn, #importNoteBtn, #printNoteBtn {
     background: none; border: none; cursor: pointer; font-size: 1.2em;
-    color: var(--text-secondary); margin-right: 15px; padding: 0;
+    color: var(--accent-negative); padding: 4px 8px; border-radius: 6px;
 }
-#exportNoteBtn:hover, #screenshotBtn:hover, #focusModeBtn:hover, #duplicateNoteBtn:hover, #importNoteBtn:hover, #printNoteBtn:hover { color: var(--text-primary); }
-#focusModeBtn.active { color: var(--link-color); }
+#deleteNoteBtn:hover { color: var(--accent-negative-hover); background: var(--bg-accent-hover); }
+
+#exportNoteBtn, #screenshotBtn, #focusModeBtn, #duplicateNoteBtn, #importNoteBtn, #printNoteBtn, #statsBtn {
+    background: none; border: none; cursor: pointer; font-size: 1.1em;
+    color: var(--text-secondary); padding: 6px 8px; border-radius: 6px;
+}
+#exportNoteBtn:hover, #screenshotBtn:hover, #focusModeBtn:hover, #duplicateNoteBtn:hover, #importNoteBtn:hover, #printNoteBtn:hover, #statsBtn:hover { 
+    color: var(--text-primary); background: var(--bg-accent-hover); 
+}
+#focusModeBtn.active { color: var(--link-color); background: var(--bg-accent-hover); }
 
 /* Generic Dropdown */
-.dropdown-wrapper { position: relative; display: inline-block; margin-right: 15px; }
-.dropdown-wrapper > button { margin-right: 0; display: flex; align-items: center; gap: 3px; }
+.dropdown-wrapper { position: relative; display: inline-flex; }
+.dropdown-wrapper > button { display: flex; align-items: center; gap: 3px; }
 .export-caret { font-size: 10px; }
 .dropdown-menu {
     display: none;
@@ -245,19 +249,22 @@ body {
     cursor: pointer;
 }
 .editor-toolbar {
-    padding: 5px; background-color: var(--bg-tertiary); display: flex; flex-wrap: wrap;
-    border-bottom: 1px solid var(--border-color); flex-shrink: 0;
+    padding: 4px 6px; background-color: var(--bg-tertiary); display: flex; flex-wrap: wrap;
+    gap: 2px; align-items: center; border-bottom: 1px solid var(--border-color); flex-shrink: 0;
+    min-height: 38px;
 }
 .toolbar-btn {
-    border: 1px solid transparent; background-color: transparent; font-size: 16px; cursor: pointer; margin: 2px;
-    padding: 5px 8px; width: 32px; height: 32px; color: var(--text-secondary);
+    border: 1px solid transparent; background-color: transparent; font-size: 14px; cursor: pointer;
+    padding: 5px 7px; min-width: 30px; height: 30px; color: var(--text-secondary);
+    display: flex; align-items: center; justify-content: center; border-radius: 4px;
+    transition: background 0.12s, color 0.12s;
 }
-.toolbar-btn:hover { background-color: var(--bg-accent-hover); border-radius: 3px; }
+.toolbar-btn:hover { background-color: var(--bg-accent-hover); }
 .toolbar-separator {
-    width: 1px; height: 24px; background-color: var(--border-color);
-    margin: 0 6px; align-self: center;
+    width: 1px; height: 22px; background-color: var(--border-color);
+    margin: 0 4px; align-self: center; flex-shrink: 0;
 }
-.toolbar-btn small { font-size: 10px; margin-left: 1px; }
+.toolbar-btn small { font-size: 10px; margin-left: 2px; line-height: 1; }
 
 .color-picker {
     visibility: hidden;
@@ -404,7 +411,7 @@ body {
 /* FOCUS MODE */
 body.focus-mode .sidebar { display: none; }
 body.focus-mode .top-controls > button:not(#focusModeBtn):not(#themeToggleBtn),
-body.focus-mode .top-controls > .export-dropdown-wrapper { display: none; }
+body.focus-mode .top-controls > .dropdown-wrapper { display: none; }
 body.focus-mode .editor-footer { opacity: 0.5; }
 body.focus-mode .editor-toolbar { opacity: 0.5; }
 body.focus-mode .editor-toolbar:hover,
