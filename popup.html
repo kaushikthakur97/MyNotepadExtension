@@ -17,6 +17,14 @@
                     <option value="date-asc">Sort: Oldest First</option>
                     <option value="title-az">Sort: Title (A-Z)</option>
                 </select>
+                <select id="categoryFilterSelect" title="Filter by Category">
+                    <option value="">All Categories</option>
+                    <option value="work">💼 Work</option>
+                    <option value="personal">👤 Personal</option>
+                    <option value="ideas">💡 Ideas</option>
+                    <option value="todo">✅ To-Do</option>
+                    <option value="reference">📚 Reference</option>
+                </select>
             </div>
             <div id="notesList" class="notes-list"></div>
             <div class="sidebar-footer">
@@ -28,21 +36,41 @@
             <div class="top-controls">
                 <button id="themeToggleBtn" title="Toggle Theme"><i class="fas fa-palette"></i></button>
                 <button id="focusModeBtn" title="Focus Mode (Ctrl+Shift+F)"><i class="fas fa-expand"></i></button>
-                <button id="screenshotBtn" title="Capture Screenshot"><i class="fas fa-camera"></i></button>
-                <div class="export-dropdown-wrapper">
-                    <button id="exportNoteBtn" title="Export Note (Ctrl+E)"><i class="fas fa-file-export"></i><span class="export-caret">▾</span></button>
-                    <div class="export-dropdown-menu">
-                        <button class="export-option" data-format="txt">Export as .txt (Ctrl+E)</button>
-                        <button class="export-option" data-format="md">Export as .md (Ctrl+Shift+E)</button>
+                <div class="dropdown-wrapper">
+                    <button id="screenshotBtn" title="Capture Screenshot"><i class="fas fa-camera"></i><span class="export-caret">▾</span></button>
+                    <div class="dropdown-menu" id="screenshotDropdown">
+                        <button class="dropdown-option" data-action="visible">Capture Visible Tab</button>
+                        <button class="dropdown-option" data-action="fullpage">Capture Full Page</button>
+                        <button class="dropdown-option" data-action="save">Save Screenshot as File</button>
                     </div>
                 </div>
+                <div class="dropdown-wrapper">
+                    <button id="exportNoteBtn" title="Export Note (Ctrl+E)"><i class="fas fa-file-export"></i><span class="export-caret">▾</span></button>
+                    <div class="dropdown-menu" id="exportDropdown">
+                        <button class="dropdown-option" data-format="txt">Export as .txt (Ctrl+E)</button>
+                        <button class="dropdown-option" data-format="md">Export as .md (Ctrl+Shift+E)</button>
+                    </div>
+                </div>
+                <button id="importNoteBtn" title="Import Notes"><i class="fas fa-file-import"></i></button>
+                <button id="printNoteBtn" title="Print Note (Ctrl+P)"><i class="fas fa-print"></i></button>
                 <button id="duplicateNoteBtn" title="Duplicate Note (Ctrl+D)"><i class="fas fa-copy"></i></button>
                 <button id="deleteNoteBtn" title="Delete Note (Ctrl+Shift+D)"><i class="fas fa-trash"></i></button>
                 <button id="newNoteBtn">New Note (Ctrl+N)</button>
+                <input type="file" id="importFileInput" accept=".txt,.md,.json" style="display:none;" multiple>
             </div>
             
             <div class="note-editor-container">
-                <input type="text" id="noteTitleInput" placeholder="Note Title...">
+                <div class="title-row">
+                    <input type="text" id="noteTitleInput" placeholder="Note Title...">
+                    <select id="categorySelect" title="Note Category">
+                        <option value="">📂 None</option>
+                        <option value="work">💼 Work</option>
+                        <option value="personal">👤 Personal</option>
+                        <option value="ideas">💡 Ideas</option>
+                        <option value="todo">✅ To-Do</option>
+                        <option value="reference">📚 Reference</option>
+                    </select>
+                </div>
                 
                 <div id="editorToolbar" class="editor-toolbar">
                     <button id="undoBtn" class="toolbar-btn" title="Undo (Ctrl+Z)"><i class="fas fa-undo"></i></button>
@@ -58,7 +86,10 @@
                     <button id="alignRightBtn" class="toolbar-btn" title="Align Right"><i class="fas fa-align-right"></i></button>
                     <button id="ulBtn" class="toolbar-btn" title="Bulleted List"><i class="fas fa-list-ul"></i></button>
                     <button id="olBtn" class="toolbar-btn" title="Numbered List"><i class="fas fa-list-ol"></i></button>
-
+                    <span class="toolbar-separator"></span>
+                    <button id="codeBlockBtn" class="toolbar-btn" title="Code Block"><i class="fas fa-code"></i></button>
+                    <button id="tableBtn" class="toolbar-btn" title="Insert Table"><i class="fas fa-table"></i></button>
+                    <button id="hrBtn" class="toolbar-btn" title="Horizontal Rule"><i class="fas fa-minus"></i></button>
                     <span class="toolbar-separator"></span>
                     <button id="fontSizeDecreaseBtn" class="toolbar-btn" title="Decrease Font Size"><i class="fas fa-font"></i><small>−</small></button>
                     <button id="fontSizeResetBtn" class="toolbar-btn" title="Reset Font Size"><i class="fas fa-text-height"></i></button>
@@ -72,6 +103,8 @@
                     <button id="backColorBtn" class="toolbar-btn" title="Highlight Color"><i class="fas fa-highlighter"></i></button>
                     
                     <button id="clearFormatBtn" class="toolbar-btn" title="Clear Formatting"><i class="fas fa-text-slash"></i></button>
+                    <span class="toolbar-separator"></span>
+                    <button id="spellCheckBtn" class="toolbar-btn" title="Spell Check (Off)"><i class="fas fa-spell-check"></i></button>
                 </div>
                 
                 <div id="editor" class="editor" contenteditable="true" spellcheck="false"></div>
@@ -96,6 +129,7 @@
 
             <div class="editor-footer">
                 <span id="lastSaved"></span>
+                <span id="noteInfo" class="note-info"></span>
                 <span class="editor-stats">
                     <span id="wordCount">Words: 0</span> | <span id="charCount">Characters: 0</span> | <span id="lineCount">Lines: 0</span>
                 </span>

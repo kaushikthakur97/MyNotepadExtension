@@ -18,8 +18,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const themeToggleBtn = document.getElementById('themeToggleBtn');
     const lastSavedSpan = document.getElementById('lastSaved');
     const exportNoteBtn = document.getElementById('exportNoteBtn');
-    const exportDropdown = document.querySelector('.export-dropdown-menu');
+    const exportDropdown = document.getElementById('exportDropdown');
     const screenshotBtn = document.getElementById('screenshotBtn');
+    const screenshotDropdown = document.getElementById('screenshotDropdown');
+    const importNoteBtn = document.getElementById('importNoteBtn');
+    const importFileInput = document.getElementById('importFileInput');
+    const printNoteBtn = document.getElementById('printNoteBtn');
+    const categorySelect = document.getElementById('categorySelect');
+    const categoryFilterSelect = document.getElementById('categoryFilterSelect');
+    const noteInfoSpan = document.getElementById('noteInfo');
+    const codeBlockBtn = document.getElementById('codeBlockBtn');
+    const tableBtn = document.getElementById('tableBtn');
+    const hrBtn = document.getElementById('hrBtn');
+    const spellCheckBtn = document.getElementById('spellCheckBtn');
     const toastContainer = document.getElementById('toastContainer');
     const editorToolbar = document.getElementById('editorToolbar');
     const focusModeBtn = document.getElementById('focusModeBtn');
@@ -164,13 +175,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const createNewNote = (shouldSave = true) => {
         if (isRecycleBinViewActive) showEditorView();
         
-        const newNote = { id: Date.now(), title: '', content: '', isPinned: false, lastModified: Date.now() };
+        const newNote = { id: Date.now(), title: '', content: '', category: '', isPinned: false, createdAt: Date.now(), lastModified: Date.now() };
         notes.unshift(newNote);
         currentNoteId = newNote.id;
         
         if (shouldSave) saveData();
 
         searchInput.value = '';
+        categoryFilterSelect.value = '';
         renderNotesList();
         loadNoteContent();
         noteTitleInput.focus();
@@ -213,29 +225,36 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- SCREENSHOT FEATURE ---
-    // FIXED: Now correctly switches view if you take a screenshot from the recycle bin.
-    const captureAndSaveScreenshot = async () => {
+    const captureAndSaveScreenshot = async (mode = 'visible') => {
+        if (mode === 'fullpage') {
+            await captureFullPage();
+            return;
+        }
+        if (mode === 'save') {
+            await saveScreenshotAsFile();
+            return;
+        }
         try {
             const dataUrl = await chrome.tabs.captureVisibleTab(null, { format: 'png' });
             
-            const timestamp = new Date();
+            const timestamp = Date.now();
             const newNote = {
-                id: timestamp.getTime(),
-                title: `Screenshot - ${timestamp.toLocaleString()}`,
+                id: timestamp,
+                title: `Screenshot - ${new Date(timestamp).toLocaleString()}`,
                 content: `<img src="${dataUrl}" alt="Screen Capture"/>`,
+                category: '',
                 isPinned: false,
-                lastModified: timestamp.getTime()
+                createdAt: timestamp,
+                lastModified: timestamp
             };
             
             notes.unshift(newNote);
             currentNoteId = newNote.id;
             saveData();
 
-            // If we were in the bin, we must switch back to the editor to see the new note.
             if (isRecycleBinViewActive) {
                 showEditorView();
             } else {
-                // Otherwise, a simple UI refresh is enough.
                 renderNotesList();
                 loadNoteContent();
             }
@@ -245,6 +264,114 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error("Screenshot Error:", error);
             showToast('Failed to capture screen. Try again.', 'error');
+        }
+    };
+
+    const saveScreenshotAsFile = async () => {
+        try {
+            const dataUrl = await chrome.tabs.captureVisibleTab(null, { format: 'png' });
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const link = document.createElement('a');
+            link.href = dataUrl;
+            link.download = `screenshot-${timestamp}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('Screenshot saved as file!', 'success');
+        } catch (error) {
+            console.error("Screenshot Save Error:", error);
+            showToast('Failed to save screenshot.', 'error');
+        }
+    };
+
+    const captureFullPage = async () => {
+        try {
+            showToast('Capturing full page...', 'info');
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            
+            const dimResult = await chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                func: () => ({
+                    pageWidth: Math.max(document.body.scrollWidth, document.documentElement.scrollWidth, document.documentElement.clientWidth),
+                    pageHeight: Math.max(document.body.scrollHeight, document.documentElement.scrollHeight, document.documentElement.clientHeight),
+                    viewHeight: window.innerHeight
+                })
+            });
+            
+            const { pageWidth, pageHeight, viewHeight } = dimResult[0].result;
+            const chunks = [];
+            let scrollY = 0;
+            
+            while (scrollY < pageHeight) {
+                await chrome.scripting.executeScript({
+                    target: { tabId: tab.id },
+                    func: (y) => { window.scrollTo(0, y); },
+                    args: [scrollY]
+                });
+                
+                await new Promise(r => setTimeout(r, 300));
+                
+                const dataUrl = await new Promise((resolve, reject) => {
+                    chrome.tabs.captureVisibleTab(null, { format: 'png' }, (result) => {
+                        if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+                        else resolve(result);
+                    });
+                });
+                
+                chunks.push({ dataUrl, y: scrollY });
+                scrollY += viewHeight;
+            }
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = pageWidth;
+            canvas.height = pageHeight;
+            const ctx = canvas.getContext('2d');
+            
+            await Promise.all(chunks.map(chunk => {
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const scale = pageWidth / img.width;
+                        ctx.drawImage(img, 0, chunk.y * scale, pageWidth, viewHeight * scale);
+                        resolve();
+                    };
+                    img.src = chunk.dataUrl;
+                });
+            }));
+            
+            // Restore scroll position
+            await chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                func: () => { window.scrollTo(0, 0); }
+            });
+            
+            const dataUrl = canvas.toDataURL('image/png');
+            const timestamp = Date.now();
+            const newNote = {
+                id: timestamp,
+                title: `Full Page - ${new Date(timestamp).toLocaleString()}`,
+                content: `<img src="${dataUrl}" alt="Full Page Capture"/>`,
+                category: '',
+                isPinned: false,
+                createdAt: timestamp,
+                lastModified: timestamp
+            };
+            notes.unshift(newNote);
+            currentNoteId = newNote.id;
+            saveData();
+            if (isRecycleBinViewActive) showEditorView();
+            else { renderNotesList(); loadNoteContent(); }
+            copyImageToClipboard(dataUrl);
+            showToast('Full page captured!', 'success');
+        } catch (error) {
+            console.error("Full Page Error:", error);
+            showToast('Full page capture failed. Try visible tab.', 'error');
+            await chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
+                chrome.scripting.executeScript({
+                    target: { tabId: tab.id },
+                    func: () => { window.scrollTo(0, 0); }
+                });
+            });
         }
     };
     
@@ -362,7 +489,9 @@ document.addEventListener('DOMContentLoaded', () => {
             id: Date.now(),
             title: `${note.title} (Copy)`,
             content: note.content,
+            category: note.category,
             isPinned: false,
+            createdAt: Date.now(),
             lastModified: Date.now()
         };
         notes.unshift(newNote);
@@ -421,20 +550,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- UI RENDERING & CONTENT UPDATES ---
     const renderNotesList = () => {
-        sortNotes(); // Sort data before rendering
+        sortNotes();
         const fragment = document.createDocumentFragment();
         const searchQuery = searchInput.value.toLowerCase().trim();
-        const filteredNotes = searchQuery 
-            ? notes.filter(n => n.title.toLowerCase().includes(searchQuery) || n.content.toLowerCase().includes(searchQuery))
-            : notes;
+        const categoryFilter = categoryFilterSelect.value;
+        
+        let filteredNotes = notes;
+        if (searchQuery) {
+            filteredNotes = filteredNotes.filter(n => 
+                n.title.toLowerCase().includes(searchQuery) || n.content.toLowerCase().includes(searchQuery));
+        }
+        if (categoryFilter) {
+            filteredNotes = filteredNotes.filter(n => n.category === categoryFilter);
+        }
 
         filteredNotes.forEach(note => {
             const item = document.createElement('div');
             item.className = `note-item ${note.isPinned ? 'pinned' : ''} ${note.id === currentNoteId && !isRecycleBinViewActive ? 'active' : ''}`;
             item.dataset.id = note.id;
             const displayTitle = note.title.trim() || note.content.replace(/<[^>]*>/g, ' ').trim().substring(0, 40) || 'Untitled Note';
+            const categoryDot = note.category ? `<span class="note-category ${note.category}"></span>` : '';
 
-            item.innerHTML = `<i class="fa-solid fa-thumbtack pin-icon" title="${note.isPinned ? 'Unpin Note' : 'Pin Note'}"></i><span class="note-title">${displayTitle}</span>`;
+            item.innerHTML = `${categoryDot}<i class="fa-solid fa-thumbtack pin-icon" title="${note.isPinned ? 'Unpin Note' : 'Pin Note'}"></i><span class="note-title">${displayTitle}</span>`;
             fragment.appendChild(item);
         });
 
@@ -456,15 +593,21 @@ document.addEventListener('DOMContentLoaded', () => {
         deleteNoteBtn.disabled = !isEditorEnabled;
         exportNoteBtn.disabled = !isEditorEnabled;
         duplicateNoteBtn.disabled = !isEditorEnabled;
+        printNoteBtn.disabled = !isEditorEnabled;
+        categorySelect.disabled = !isEditorEnabled;
         [...editorToolbar.getElementsByTagName('button')].forEach(b => b.disabled = !isEditorEnabled);
 
         if (note) {
             noteTitleInput.value = note.title;
             editorContainer.innerHTML = note.content;
+            categorySelect.value = note.category || '';
+            updateNoteInfo(note);
             updateLastSavedDisplay(note.lastModified);
         } else {
             noteTitleInput.value = 'Select a Note';
             editorContainer.innerHTML = '<div class="empty-state">Select a note from the list or create a new one!</div>';
+            categorySelect.value = '';
+            noteInfoSpan.textContent = '';
             updateLastSavedDisplay(null);
         }
         updateWordCount();
@@ -483,11 +626,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const titleChanged = note.title !== noteTitleInput.value;
             const contentChanged = note.content !== editorContainer.innerHTML;
+            const categoryChanged = note.category !== (categorySelect.value || '');
 
-            if (titleChanged || contentChanged) {
+            if (titleChanged || contentChanged || categoryChanged) {
                 clearFindHighlights();
                 note.title = noteTitleInput.value;
                 note.content = editorContainer.innerHTML;
+                note.category = categorySelect.value || '';
                 note.lastModified = Date.now();
                 saveData();
                 renderNotesList();
@@ -512,6 +657,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (diffMinutes < 60) { lastSavedSpan.textContent = `Saved ${diffMinutes}m ago`; }
             else { lastSavedSpan.textContent = `Saved: ${savedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`; }
         }
+    };
+    
+    const updateNoteInfo = (note) => {
+        if (!note) { noteInfoSpan.textContent = ''; return; }
+        const created = note.createdAt ? new Date(note.createdAt).toLocaleDateString() : '—';
+        const modified = new Date(note.lastModified).toLocaleDateString();
+        noteInfoSpan.textContent = `Created: ${created}  ·  Modified: ${modified}`;
     };
     
     const updateWordCount = () => {
@@ -657,6 +809,118 @@ document.addEventListener('DOMContentLoaded', () => {
         editorContainer.style.fontSize = fontSize + 'px';
         showToast('Font size reset', 'info');
     };
+
+    // --- IMPORT NOTES ---
+    const importNotes = (files) => {
+        if (!files || files.length === 0) return;
+        let imported = 0;
+        const processFile = (file) => {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const text = e.target.result;
+                    const ext = file.name.split('.').pop().toLowerCase();
+                    let title = file.name.replace(/\.[^.]+$/, '');
+                    let content = '';
+
+                    if (ext === 'json') {
+                        try {
+                            const data = JSON.parse(text);
+                            if (Array.isArray(data)) {
+                                data.forEach(n => {
+                                    notes.unshift({
+                                        id: Date.now() + Math.random(),
+                                        title: n.title || 'Imported Note',
+                                        content: n.content || '',
+                                        category: n.category || '',
+                                        isPinned: false,
+                                        createdAt: n.createdAt || Date.now(),
+                                        lastModified: Date.now()
+                                    });
+                                    imported++;
+                                });
+                                resolve(); return;
+                            }
+                        } catch (ex) { /* fall through to plain text */ }
+                    }
+                    
+                    if (ext === 'md') {
+                        content = text;
+                    } else {
+                        content = text.replace(/\n/g, '<br>');
+                    }
+
+                    notes.unshift({
+                        id: Date.now() + Math.random(),
+                        title,
+                        content,
+                        category: '',
+                        isPinned: false,
+                        createdAt: Date.now(),
+                        lastModified: Date.now()
+                    });
+                    imported++;
+                    resolve();
+                };
+                reader.readAsText(file);
+            });
+        };
+
+        Promise.all(Array.from(files).map(processFile)).then(() => {
+            if (imported > 0) {
+                saveData();
+                currentNoteId = notes[0].id;
+                renderNotesList();
+                loadNoteContent();
+                showToast(`Imported ${imported} note${imported > 1 ? 's' : ''}!`, 'success');
+            } else {
+                showToast('No valid notes found.', 'error');
+            }
+        });
+    };
+
+    // --- PRINT NOTE ---
+    const printCurrentNote = () => {
+        if (!currentNoteId) {
+            showToast('Select a note to print.', 'error');
+            return;
+        }
+        const note = notes.find(n => n.id === currentNoteId);
+        if (!note) return;
+
+        const printWindow = window.open('', '_blank', 'width=800,height=600');
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html><head><title>${note.title || 'Untitled'}</title>
+            <style>
+                body { font-family: Georgia, serif; max-width: 700px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #222; }
+                h1 { font-size: 24px; border-bottom: 2px solid #333; padding-bottom: 8px; }
+                img { max-width: 100%; }
+                pre, code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: Consolas, monospace; }
+                pre { padding: 12px; overflow-x: auto; }
+                table { border-collapse: collapse; width: 100%; }
+                td, th { border: 1px solid #ddd; padding: 8px; }
+                hr { border: none; border-top: 2px solid #ddd; margin: 20px 0; }
+                @media print { body { margin: 0; } }
+            </style></head>
+            <body>
+                <h1>${note.title || 'Untitled Note'}</h1>
+                ${note.content}
+            </body></html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => printWindow.print(), 300);
+    };
+
+    // --- SPELL CHECK ---
+    const toggleSpellCheck = () => {
+        const current = editorContainer.getAttribute('spellcheck') !== 'false';
+        const enabled = !current;
+        editorContainer.setAttribute('spellcheck', enabled.toString());
+        spellCheckBtn.classList.toggle('active', enabled);
+        showToast(enabled ? 'Spell check ON' : 'Spell check OFF', 'info');
+    };
     
     const showToast = (message, type = 'info') => {
         const toast = document.createElement('div');
@@ -702,6 +966,44 @@ document.addEventListener('DOMContentLoaded', () => {
                 case 'fontSizeDecreaseBtn': changeFontSize(-1); break;
                 case 'fontSizeIncreaseBtn': changeFontSize(1); break;
                 case 'fontSizeResetBtn': resetFontSize(); break;
+                case 'codeBlockBtn':
+                    const sel = window.getSelection();
+                    if (sel.rangeCount > 0) {
+                        const range = sel.getRangeAt(0);
+                        const pre = document.createElement('pre');
+                        pre.textContent = range.toString() || 'code';
+                        range.deleteContents();
+                        range.insertNode(pre);
+                        range.selectNodeContents(pre);
+                        sel.removeAllRanges();
+                        sel.addRange(range);
+                        handleNoteUpdate();
+                    } else {
+                        exec('insertHTML', '<pre>code</pre>');
+                    }
+                    break;
+                case 'tableBtn':
+                    const rows = prompt('Number of rows:', '3');
+                    const cols = prompt('Number of columns:', '3');
+                    if (rows && cols) {
+                        let tableHtml = '<table>';
+                        for (let r = 0; r < parseInt(rows); r++) {
+                            tableHtml += '<tr>';
+                            for (let c = 0; c < parseInt(cols); c++) {
+                                tableHtml += '<td>&nbsp;</td>';
+                            }
+                            tableHtml += '</tr>';
+                        }
+                        tableHtml += '</table>';
+                        exec('insertHTML', tableHtml);
+                    }
+                    break;
+                case 'hrBtn':
+                    exec('insertHorizontalRule');
+                    break;
+                case 'spellCheckBtn':
+                    toggleSpellCheck();
+                    break;
             }
         });
         document.getElementById('foreColorPicker').addEventListener('input', (e) => {
@@ -720,16 +1022,34 @@ document.addEventListener('DOMContentLoaded', () => {
         newNoteBtn.addEventListener('click', () => createNewNote());
         deleteNoteBtn.addEventListener('click', deleteCurrentNote);
         duplicateNoteBtn.addEventListener('click', duplicateNote);
+        importNoteBtn.addEventListener('click', () => importFileInput.click());
+        printNoteBtn.addEventListener('click', printCurrentNote);
+        
+        // Export dropdown
         exportNoteBtn.addEventListener('click', (e) => {
             e.stopPropagation();
+            screenshotDropdown.classList.remove('show');
             exportDropdown.classList.toggle('show');
         });
-        screenshotBtn.addEventListener('click', captureAndSaveScreenshot);
+        
+        // Screenshot dropdown
+        screenshotBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            exportDropdown.classList.remove('show');
+            screenshotDropdown.classList.toggle('show');
+        });
+        
+        // Import file input
+        importFileInput.addEventListener('change', (e) => {
+            importNotes(e.target.files);
+            importFileInput.value = '';
+        });
+        
         recycleBinLink.addEventListener('click', (e) => { e.preventDefault(); showRecycleBinView(); });
 
         // Export dropdown option clicks
         exportDropdown.addEventListener('click', (e) => {
-            const option = e.target.closest('.export-option');
+            const option = e.target.closest('.dropdown-option');
             if (!option) return;
             e.stopPropagation();
             const format = option.dataset.format;
@@ -738,8 +1058,21 @@ document.addEventListener('DOMContentLoaded', () => {
             else exportCurrentNote();
         });
 
-        // Close export dropdown when clicking outside
-        document.addEventListener('click', () => exportDropdown.classList.remove('show'));
+        // Screenshot dropdown option clicks
+        screenshotDropdown.addEventListener('click', (e) => {
+            const option = e.target.closest('.dropdown-option');
+            if (!option) return;
+            e.stopPropagation();
+            const action = option.dataset.action;
+            screenshotDropdown.classList.remove('show');
+            captureAndSaveScreenshot(action);
+        });
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', () => {
+            exportDropdown.classList.remove('show');
+            screenshotDropdown.classList.remove('show');
+        });
 
         // --- Find & Replace Bar Events ---
         findInput.addEventListener('input', () => {
@@ -787,6 +1120,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 case 's': e.preventDefault(); showToast('Note saved!', 'success'); handleNoteUpdate(); break;
                 case 'd': e.preventDefault(); duplicateNote(); break;
                 case 'e': e.preventDefault(); exportCurrentNote(); break;
+                case 'p': e.preventDefault(); printCurrentNote(); break;
                 case 'f': e.preventDefault(); openFindBar(); break;
                 case 'h': e.preventDefault(); openFindBar(true); break;
                 case 'arrowup': e.preventDefault(); navigateNotes('up'); break;
@@ -869,6 +1203,8 @@ document.addEventListener('DOMContentLoaded', () => {
             saveData();
             renderNotesList();
         });
+        categoryFilterSelect.addEventListener('change', renderNotesList);
+        categorySelect.addEventListener('change', handleNoteUpdate);
         noteTitleInput.addEventListener('input', handleNoteUpdate);
         editorContainer.addEventListener('input', handleNoteUpdate);
         editorContainer.addEventListener('paste', handlePaste);
