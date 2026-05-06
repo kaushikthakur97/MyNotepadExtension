@@ -18,9 +18,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const themeToggleBtn = document.getElementById('themeToggleBtn');
     const lastSavedSpan = document.getElementById('lastSaved');
     const exportNoteBtn = document.getElementById('exportNoteBtn');
+    const exportDropdown = document.querySelector('.export-dropdown-menu');
     const screenshotBtn = document.getElementById('screenshotBtn');
     const toastContainer = document.getElementById('toastContainer');
     const editorToolbar = document.getElementById('editorToolbar');
+    const focusModeBtn = document.getElementById('focusModeBtn');
+    const duplicateNoteBtn = document.getElementById('duplicateNoteBtn');
+    const findReplaceBar = document.getElementById('findReplaceBar');
+    const findInput = document.getElementById('findInput');
+    const findMatchCount = document.getElementById('findMatchCount');
+    const findPrevBtn = document.getElementById('findPrevBtn');
+    const findNextBtn = document.getElementById('findNextBtn');
+    const findCloseBtn = document.getElementById('findCloseBtn');
+    const findCaseBtn = document.getElementById('findCaseBtn');
+    const replaceRow = document.getElementById('replaceRow');
+    const replaceInput = document.getElementById('replaceInput');
+    const replaceBtn = document.getElementById('replaceBtn');
+    const replaceAllBtn = document.getElementById('replaceAllBtn');
+    const lineCountSpan = document.getElementById('lineCount');
+    const fontSizeDecreaseBtn = document.getElementById('fontSizeDecreaseBtn');
+    const fontSizeIncreaseBtn = document.getElementById('fontSizeIncreaseBtn');
+    const fontSizeResetBtn = document.getElementById('fontSizeResetBtn');
+    const undoBtn = document.getElementById('undoBtn');
+    const redoBtn = document.getElementById('redoBtn');
 
     // --- State Variables ---
     let notes = [];
@@ -31,6 +51,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const themes = ['light', 'dark', 'slate', 'glassmorphism'];
     let currentTheme = 'glassmorphism'; // Default theme is now glassmorphism
     let debounceTimer;
+    let isFocusMode = false;
+    let findCaseSensitive = false;
+    let lastFindQuery = '';
+    let fontSize = 16;
 
     // --- DATA MANAGEMENT ---
     const saveData = () => {
@@ -272,6 +296,113 @@ document.addEventListener('DOMContentLoaded', () => {
         showToast('Note exported as .txt', 'success');
     };
 
+    const exportCurrentNoteAsMarkdown = () => {
+        if (!currentNoteId) {
+            showToast('Select a note to export.', 'error');
+            return;
+        }
+        const note = notes.find(n => n.id === currentNoteId);
+        if (!note) return;
+        
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = note.content;
+        
+        let md = `# ${note.title}\n\n`;
+        const convertNode = (node) => {
+            if (node.nodeType === Node.TEXT_NODE) {
+                md += node.textContent;
+                return;
+            }
+            if (node.nodeType !== Node.ELEMENT_NODE) return;
+            const tag = node.tagName.toLowerCase();
+            const children = Array.from(node.childNodes);
+            switch (tag) {
+                case 'br': md += '\n'; break;
+                case 'p': case 'div': children.forEach(convertNode); md += '\n\n'; break;
+                case 'b': case 'strong': md += '**'; children.forEach(convertNode); md += '**'; break;
+                case 'i': case 'em': md += '*'; children.forEach(convertNode); md += '*'; break;
+                case 'u': case 'ins': md += '<u>'; children.forEach(convertNode); md += '</u>'; break;
+                case 's': case 'strike': case 'del': md += '~~'; children.forEach(convertNode); md += '~~'; break;
+                case 'a': md += '['; children.forEach(convertNode); md += `](${node.href || ''})`; break;
+                case 'ul': md += '\n'; children.forEach(convertNode); md += '\n'; break;
+                case 'ol': md += '\n'; children.forEach((c, i) => { md += `${i + 1}. `; convertNode(c); md += '\n'; }); break;
+                case 'li': children.forEach(convertNode); md += '\n'; break;
+                case 'img': md += `![${node.alt || 'image'}](${node.src})`; break;
+                case 'mark': children.forEach(convertNode); break;
+                case 'span': children.forEach(convertNode); break;
+                case 'h1': md += '# '; children.forEach(convertNode); md += '\n\n'; break;
+                case 'h2': md += '## '; children.forEach(convertNode); md += '\n\n'; break;
+                case 'h3': md += '### '; children.forEach(convertNode); md += '\n\n'; break;
+                default: children.forEach(convertNode); break;
+            }
+        };
+        Array.from(tempDiv.childNodes).forEach(convertNode);
+        
+        const blob = new Blob([md.trim()], { type: 'text/markdown;charset=utf-8' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        const fileName = (note.title.trim() || 'untitled_note').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        link.setAttribute('href', url);
+        link.setAttribute('download', `${fileName}.md`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        showToast('Note exported as .md', 'success');
+    };
+
+    const duplicateNote = () => {
+        if (!currentNoteId) {
+            showToast('Select a note to duplicate.', 'error');
+            return;
+        }
+        const note = notes.find(n => n.id === currentNoteId);
+        if (!note) return;
+        const newNote = {
+            id: Date.now(),
+            title: `${note.title} (Copy)`,
+            content: note.content,
+            isPinned: false,
+            lastModified: Date.now()
+        };
+        notes.unshift(newNote);
+        currentNoteId = newNote.id;
+        saveData();
+        renderNotesList();
+        loadNoteContent();
+        showToast('Note duplicated!', 'success');
+    };
+
+    const toggleFocusMode = () => {
+        isFocusMode = !isFocusMode;
+        body.classList.toggle('focus-mode', isFocusMode);
+        focusModeBtn.classList.toggle('active', isFocusMode);
+        focusModeBtn.title = isFocusMode ? 'Exit Focus Mode (Ctrl+Shift+F)' : 'Focus Mode (Ctrl+Shift+F)';
+        showToast(isFocusMode ? 'Focus mode ON' : 'Focus mode OFF', 'info');
+        // Force editor to resize properly
+        setTimeout(() => editorContainer.focus(), 50);
+    };
+
+    const navigateNotes = (direction) => {
+        if (isRecycleBinViewActive) return;
+        const visibleNotes = notes.filter(n => {
+            const q = searchInput.value.toLowerCase().trim();
+            if (!q) return true;
+            return n.title.toLowerCase().includes(q) || n.content.toLowerCase().includes(q);
+        });
+        if (visibleNotes.length === 0) return;
+        const currentIdx = visibleNotes.findIndex(n => n.id === currentNoteId);
+        let newIdx;
+        if (direction === 'up') {
+            newIdx = currentIdx <= 0 ? visibleNotes.length - 1 : currentIdx - 1;
+        } else {
+            newIdx = currentIdx >= visibleNotes.length - 1 ? 0 : currentIdx + 1;
+        }
+        currentNoteId = visibleNotes[newIdx].id;
+        renderNotesList();
+        loadNoteContent();
+    };
+
     const sortNotes = () => {
         notes.sort((a, b) => {
             if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
@@ -324,6 +455,7 @@ document.addEventListener('DOMContentLoaded', () => {
         editorContainer.setAttribute('contenteditable', isEditorEnabled.toString());
         deleteNoteBtn.disabled = !isEditorEnabled;
         exportNoteBtn.disabled = !isEditorEnabled;
+        duplicateNoteBtn.disabled = !isEditorEnabled;
         [...editorToolbar.getElementsByTagName('button')].forEach(b => b.disabled = !isEditorEnabled);
 
         if (note) {
@@ -336,6 +468,9 @@ document.addEventListener('DOMContentLoaded', () => {
             updateLastSavedDisplay(null);
         }
         updateWordCount();
+        if (findReplaceBar.style.display === 'block' && findInput.value) {
+            highlightFindMatches(findInput.value);
+        }
     };
 
     const handleNoteUpdate = () => {
@@ -350,12 +485,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const contentChanged = note.content !== editorContainer.innerHTML;
 
             if (titleChanged || contentChanged) {
+                clearFindHighlights();
                 note.title = noteTitleInput.value;
                 note.content = editorContainer.innerHTML;
                 note.lastModified = Date.now();
                 saveData();
                 renderNotesList();
                 updateLastSavedDisplay(note.lastModified);
+                if (findReplaceBar.style.display === 'block' && findInput.value) {
+                    highlightFindMatches(findInput.value);
+                }
             }
         }, 500);
     };
@@ -379,9 +518,145 @@ document.addEventListener('DOMContentLoaded', () => {
         const text = editorContainer.innerText;
         charCountSpan.textContent = `Characters: ${text.length}`;
         wordCountSpan.textContent = `Words: ${text.trim() === '' ? 0 : text.trim().split(/\s+/).length}`;
+        lineCountSpan.textContent = `Lines: ${text === '' ? 0 : text.split('\n').length}`;
     };
 
     const updateDeletedCount = () => { deletedCountSpan.textContent = deletedNotes.length; };
+
+    // --- FIND & REPLACE ---
+    const clearFindHighlights = () => {
+        editorContainer.querySelectorAll('.find-highlight, .find-highlight-current').forEach(el => {
+            const parent = el.parentNode;
+            while (el.firstChild) parent.insertBefore(el.firstChild, el);
+            parent.removeChild(el);
+        });
+    };
+
+    const highlightFindMatches = (query) => {
+        clearFindHighlights();
+        if (!query) { findMatchCount.textContent = ''; return; }
+        
+        const regexFlags = findCaseSensitive ? 'g' : 'gi';
+        const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), regexFlags);
+        
+        let matchIndex = 0;
+        const walk = (node) => {
+            if (node.nodeType === Node.TEXT_NODE) {
+                const text = node.textContent;
+                const match = text.match(regex);
+                if (match) {
+                    const frag = document.createDocumentFragment();
+                    let lastIdx = 0;
+                    let m;
+                    const localRegex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), regexFlags);
+                    while ((m = localRegex.exec(text)) !== null) {
+                        if (m.index > lastIdx) {
+                            frag.appendChild(document.createTextNode(text.slice(lastIdx, m.index)));
+                        }
+                        const mark = document.createElement('mark');
+                        mark.className = 'find-highlight';
+                        mark.dataset.findIdx = matchIndex++;
+                        mark.textContent = m[0];
+                        frag.appendChild(mark);
+                        lastIdx = m.index + m[0].length;
+                    }
+                    if (lastIdx < text.length) {
+                        frag.appendChild(document.createTextNode(text.slice(lastIdx)));
+                    }
+                    node.parentNode.replaceChild(frag, node);
+                }
+            } else if (node.nodeType === Node.ELEMENT_NODE && node.tagName !== 'MARK' && node.tagName !== 'SCRIPT' && node.tagName !== 'STYLE') {
+                Array.from(node.childNodes).forEach(walk);
+            }
+        };
+        
+        editorContainer.querySelectorAll('.find-highlight, .find-highlight-current').forEach(el => {
+            const parent = el.parentNode;
+            while (el.firstChild) parent.insertBefore(el.firstChild, el);
+            parent.removeChild(el);
+        });
+        
+        Array.from(editorContainer.childNodes).forEach(walk);
+        
+        const totalMatches = editorContainer.querySelectorAll('.find-highlight').length;
+        findMatchCount.textContent = totalMatches > 0 ? `${totalMatches} match${totalMatches > 1 ? 'es' : ''}` : 'No matches';
+    };
+
+    const navigateFindMatch = (direction) => {
+        const marks = editorContainer.querySelectorAll('.find-highlight');
+        if (marks.length === 0) return;
+        
+        const currentMark = editorContainer.querySelector('.find-highlight-current');
+        let currentIdx = -1;
+        if (currentMark && currentMark.dataset.findIdx) {
+            currentIdx = parseInt(currentMark.dataset.findIdx);
+        }
+        
+        let newIdx;
+        if (direction === 'next') {
+            newIdx = currentIdx < marks.length - 1 ? currentIdx + 1 : 0;
+        } else {
+            newIdx = currentIdx > 0 ? currentIdx - 1 : marks.length - 1;
+        }
+        
+        marks.forEach(m => m.classList.remove('find-highlight-current'));
+        const target = editorContainer.querySelector(`.find-highlight[data-find-idx="${newIdx}"]`);
+        if (target) {
+            target.classList.add('find-highlight-current');
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    };
+
+    const replaceCurrentMatch = () => {
+        const currentMark = editorContainer.querySelector('.find-highlight-current');
+        if (currentMark) {
+            const replacement = replaceInput.value;
+            const textNode = document.createTextNode(replacement);
+            currentMark.parentNode.replaceChild(textNode, currentMark);
+            handleNoteUpdate();
+            highlightFindMatches(findInput.value);
+        }
+    };
+
+    const replaceAllMatches = () => {
+        const marks = editorContainer.querySelectorAll('.find-highlight');
+        if (marks.length === 0) return;
+        const replacement = replaceInput.value;
+        marks.forEach(mark => {
+            const textNode = document.createTextNode(replacement);
+            mark.parentNode.replaceChild(textNode, mark);
+        });
+        handleNoteUpdate();
+        findMatchCount.textContent = 'All replaced';
+        setTimeout(() => highlightFindMatches(findInput.value), 300);
+    };
+
+    const openFindBar = (showReplace = false) => {
+        findReplaceBar.style.display = 'block';
+        replaceRow.style.display = showReplace ? 'flex' : 'none';
+        findInput.focus();
+        findInput.select();
+        if (findInput.value) highlightFindMatches(findInput.value);
+    };
+
+    const closeFindBar = () => {
+        findReplaceBar.style.display = 'none';
+        clearFindHighlights();
+        findMatchCount.textContent = '';
+        editorContainer.focus();
+    };
+
+    // --- FONT SIZE ---
+    const changeFontSize = (delta) => {
+        fontSize = Math.max(10, Math.min(32, fontSize + delta));
+        editorContainer.style.fontSize = fontSize + 'px';
+    };
+
+    const resetFontSize = () => {
+        fontSize = 16;
+        editorContainer.style.fontSize = fontSize + 'px';
+        showToast('Font size reset', 'info');
+    };
     
     const showToast = (message, type = 'info') => {
         const toast = document.createElement('div');
@@ -406,6 +681,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 handleNoteUpdate();
             };
             switch (button.id) {
+                case 'undoBtn': exec('undo'); break;
+                case 'redoBtn': exec('redo'); break;
                 case 'boldBtn': exec('bold'); break;
                 case 'italicBtn': exec('italic'); break;
                 case 'underlineBtn': exec('underline'); break;
@@ -422,6 +699,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 case 'foreColorBtn': document.getElementById('foreColorPicker').click(); break;
                 case 'backColorBtn': document.getElementById('backColorPicker').click(); break;
                 case 'clearFormatBtn': exec('removeFormat'); break;
+                case 'fontSizeDecreaseBtn': changeFontSize(-1); break;
+                case 'fontSizeIncreaseBtn': changeFontSize(1); break;
+                case 'fontSizeResetBtn': resetFontSize(); break;
             }
         });
         document.getElementById('foreColorPicker').addEventListener('input', (e) => {
@@ -436,11 +716,91 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const setupEventListeners = () => {
         themeToggleBtn.addEventListener('click', handleThemeToggle);
+        focusModeBtn.addEventListener('click', toggleFocusMode);
         newNoteBtn.addEventListener('click', () => createNewNote());
         deleteNoteBtn.addEventListener('click', deleteCurrentNote);
-        exportNoteBtn.addEventListener('click', exportCurrentNote);
+        duplicateNoteBtn.addEventListener('click', duplicateNote);
+        exportNoteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            exportDropdown.classList.toggle('show');
+        });
         screenshotBtn.addEventListener('click', captureAndSaveScreenshot);
         recycleBinLink.addEventListener('click', (e) => { e.preventDefault(); showRecycleBinView(); });
+
+        // Export dropdown option clicks
+        exportDropdown.addEventListener('click', (e) => {
+            const option = e.target.closest('.export-option');
+            if (!option) return;
+            e.stopPropagation();
+            const format = option.dataset.format;
+            exportDropdown.classList.remove('show');
+            if (format === 'md') exportCurrentNoteAsMarkdown();
+            else exportCurrentNote();
+        });
+
+        // Close export dropdown when clicking outside
+        document.addEventListener('click', () => exportDropdown.classList.remove('show'));
+
+        // --- Find & Replace Bar Events ---
+        findInput.addEventListener('input', () => {
+            lastFindQuery = findInput.value;
+            highlightFindMatches(lastFindQuery);
+            navigateFindMatch('next');
+        });
+        findInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); navigateFindMatch(e.shiftKey ? 'prev' : 'next'); }
+            if (e.key === 'Escape') closeFindBar();
+        });
+        findPrevBtn.addEventListener('click', () => navigateFindMatch('prev'));
+        findNextBtn.addEventListener('click', () => navigateFindMatch('next'));
+        findCloseBtn.addEventListener('click', closeFindBar);
+        findCaseBtn.addEventListener('click', () => {
+            findCaseSensitive = !findCaseSensitive;
+            findCaseBtn.classList.toggle('active', findCaseSensitive);
+            if (findInput.value) highlightFindMatches(findInput.value);
+        });
+        replaceInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); replaceCurrentMatch(); }
+            if (e.key === 'Escape') closeFindBar();
+        });
+        replaceBtn.addEventListener('click', replaceCurrentMatch);
+        replaceAllBtn.addEventListener('click', replaceAllMatches);
+
+        // --- Keyboard Shortcuts ---
+        document.addEventListener('keydown', (e) => {
+            const ctrl = e.ctrlKey || e.metaKey;
+            const shift = e.shiftKey;
+            
+            // Ctrl+Shift+F: Toggle focus mode
+            if (ctrl && shift && e.key === 'F') { e.preventDefault(); toggleFocusMode(); return; }
+            // Ctrl+Shift+E: Export as markdown
+            if (ctrl && shift && e.key === 'E') { e.preventDefault(); exportCurrentNoteAsMarkdown(); return; }
+            // Ctrl+Shift+H: Find & Replace
+            if (ctrl && shift && e.key === 'H') { e.preventDefault(); openFindBar(true); return; }
+            // Ctrl+Shift+D: Delete note
+            if (ctrl && shift && e.key === 'D') { e.preventDefault(); deleteCurrentNote(); return; }
+            
+            if (!ctrl) return;
+            
+            switch (e.key.toLowerCase()) {
+                case 'n': e.preventDefault(); createNewNote(); break;
+                case 's': e.preventDefault(); showToast('Note saved!', 'success'); handleNoteUpdate(); break;
+                case 'd': e.preventDefault(); duplicateNote(); break;
+                case 'e': e.preventDefault(); exportCurrentNote(); break;
+                case 'f': e.preventDefault(); openFindBar(); break;
+                case 'h': e.preventDefault(); openFindBar(true); break;
+                case 'arrowup': e.preventDefault(); navigateNotes('up'); break;
+                case 'arrowdown': e.preventDefault(); navigateNotes('down'); break;
+                case 'escape': closeFindBar(); break;
+            }
+        });
+
+        // Close find bar on Escape when focused in find inputs
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && findReplaceBar.style.display === 'block' && e.target === editorContainer) {
+                closeFindBar();
+            }
+        });
 
         notesListContainer.addEventListener('click', (e) => {
             const noteItem = e.target.closest('.note-item');

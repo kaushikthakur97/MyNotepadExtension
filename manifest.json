@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "My Tabbed Notepad",
-  "version": "1.3.0",
-  "description": "A lightweight and efficient notepad with tabs, now with screenshot capture.",
+  "version": "1.4.0",
+  "description": "A feature-rich notepad with tabs, search, find & replace, focus mode, markdown export, and keyboard shortcuts.",
   "permissions": [
     "storage",
     "activeTab",
